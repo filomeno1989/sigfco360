@@ -1,0 +1,456 @@
+     1→// =====================================================================
+     2→// SIGFCO — Viagens (FR-030..044, §5.1): planeamento com verificação de
+     3→// conflitos, checklist pré-partida com carregador obrigatório, eventos,
+     4→// orçamento por rubrica/moeda, despesas da viagem e fecho reconciliado
+     5→// =====================================================================
+     6→'use client'
+     7→
+     8→import * as React from 'react'
+     9→import { useApp } from './root'
+    10→import { api, fmtData, fmtMT, parseMT } from '@/lib/client/api'
+    11→import { Page, Panel, DataTable, StatusBadge, Campo, EntradaTexto, Selecao, Modal, Button, ErroAlerta, Confirmacao, AProcessar, Kpi } from './ui-kit'
+    12→import { Badge } from '@/components/ui/badge'
+    13→import { Checkbox } from '@/components/ui/checkbox'
+    14→import { Plus, ShieldCheck, ShieldAlert, MapPin, Download } from 'lucide-react'
+    15→
+    16→type Trip = {
+    17→  id: string; code: string; client?: string; origin: string; destination: string; status: string
+    18→  cargoDesc?: string; cargoRef?: string
+    19→  driver: { id: string; name: string }; driverId: string
+    20→  vehicle: { id: string; plate: string }; vehicleId: string
+    21→  trailer?: { plate: string } | null; trailerId?: string | null
+    22→  plannedStart: string; plannedEnd?: string | null; plannedDistanceKm?: number
+    23→  departureAt?: string | null; arrivalAt?: string | null; closedAt?: string | null
+    24→  startOdometerKm?: number | null; endOdometerKm?: number | null
+    25→  budgetMinorTotal?: number; cancelReason?: string | null; isDemo?: boolean
+    26→  waypointsJson?: string | null
+    27→}
+    28→type DriverOpt = { id: string; name: string; eligible: boolean }
+    29→type VehicleOpt = { id: string; plate: string; status: string; device?: { id: string } | null }
+    30→type ChecklistItem = { key: string; label: string; blocking: boolean; ok?: boolean; note?: string }
+    31→type Detail = {
+    32→  trip: Trip & { approvedRouteJson?: string | null; closeBlockers?: string | null; notes?: string | null }
+    33→  expenses: Array<{ id: string; code: string; category: string; amountMinor: number; currency: string; status: string; expenseDate: string; vendor?: string }>
+    34→  incidents: Array<{ id: string; type: string; severity: string; description: string; deviceTime: string }>
+    35→  budget: { lines: Array<{ category: string; limitMinor: number; pendingMinor: number; approvedMinor: number; pct: number }>; totalLimit: number; totalPending: number; totalApproved: number; baseCurrency: string; alerts: string[] } | null
+    36→  device: { serial: string; status: string } | null
+    37→  lastPoint: { lat: number; lng: number; gnssTime: string; source: string } | null
+    38→}
+    39→
+    40→const CATS = [
+    41→  { value: 'combustivel', label: 'Combustível' }, { value: 'portagens', label: 'Portagens' },
+    42→  { value: 'per_diem', label: 'Per diem' }, { value: 'alfandega', label: 'Alfândega' },
+    43→  { value: 'taxas', label: 'Taxas' }, { value: 'manutencao_emergencia', label: 'Manutenção de emergência' },
+    44→  { value: 'comunicacoes', label: 'Comunicações' }, { value: 'estacionamento', label: 'Estacionamento' },
+    45→  { value: 'outros', label: 'Outros' },
+    46→]
+    47→
+    48→export function ViagensView() {
+    49→  const { sessao } = useApp()
+    50→  const [rows, setRows] = React.useState<Trip[]>([])
+    51→  const [erro, setErro] = React.useState<string | null>(null)
+    52→  const [sel, setSel] = React.useState<string | null>(null)
+    53→  const [novo, setNovo] = React.useState(false)
+    54→  const isDriver = sessao.user.role === 'DRIVER'
+    55→
+    56→  const carregar = React.useCallback(async () => {
+    57→    try { setRows((await api<{ trips: Trip[] }>('/api/trips')).trips); setErro(null) }
+    58→    catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao carregar viagens.') }
+    59→  }, [])
+    60→  React.useEffect(() => { carregar(); const t = setInterval(carregar, 30_000); return () => clearInterval(t) }, [carregar])
+    61→
+    62→  return (
+    63→    <Page title="Viagens" subtitle="Do planeamento ao fecho financeiro — ciclo de vida verificado no servidor (§5.1)"
+    64→      actions={!isDriver && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Nova viagem</Button>}
+    65→      demo={sessao.company?.isDemo && !isDriver}>
+    66→      <ErroAlerta erro={erro} />
+    67→      <Panel>
+    68→        <DataTable
+    69→          rows={rows} filtro={(t, q) => [t.code, t.origin, t.destination, t.client, t.vehicle?.plate, t.driver?.name].some((s) => s?.toLowerCase().includes(q))}
+    70→          filtroPlaceholder="Código, origem, cliente…" onRowClick={(t) => setSel(t.id)}
+    71→          columns={[
+    72→            { key: 'code', header: 'Código', render: (t) => <span className="font-medium">{t.code}{t.isDemo && <Badge variant="outline" className="ml-1.5 border-amber-500 text-amber-600">DEMO</Badge>}</span> },
+    73→            { key: 'rota', header: 'Rota', render: (t) => `${t.origin} → ${t.destination}` },
+    74→            { key: 'client', header: 'Cliente', render: (t) => t.client ?? '—', hideOnMobile: true },
+    75→            { key: 'recursos', header: 'Veículo / Motorista', render: (t) => <div><div>{t.vehicle?.plate}</div><div className="text-xs text-muted-foreground">{t.driver?.name}</div></div> },
+    76→            { key: 'plannedStart', header: 'Início previsto', render: (t) => fmtData(t.plannedStart, true), hideOnMobile: true },
+    77→            { key: 'status', header: 'Estado', render: (t) => <StatusBadge estado={t.status} mapa={{}} /> },
+    78→          ]} />
+    79→      </Panel>
+    80→
+    81→      <NovaViagem open={novo} onOpenChange={setNovo} aoCriar={() => { carregar() }} />
+    82→      <TripDetail tripId={sel} onOpenChange={(v) => !v && setSel(null)} aoMudar={carregar} />
+    83→    </Page>
+    84→  )
+    85→}
+    86→
+    87→function NovaViagem({ open, onOpenChange, aoCriar }: { open: boolean; onOpenChange: (v: boolean) => void; aoCriar: () => void }) {
+    88→  const [drivers, setDrivers] = React.useState<DriverOpt[]>([])
+    89→  const [vehicles, setVehicles] = React.useState<VehicleOpt[]>([])
+    90→  const [trailers, setTrailers] = React.useState<Array<{ id: string; plate: string }>>([])
+    91→  const [form, setForm] = React.useState<Record<string, string>>({})
+    92→  const [rubricas, setRubricas] = React.useState<Array<{ category: string; currency: string; valor: string }>>([])
+    93→  const [erro, setErro] = React.useState<string | null>(null)
+    94→  const [bloqueios, setBloqueios] = React.useState<string[]>([])
+    95→  const [busy, setBusy] = React.useState(false)
+    96→
+    97→  React.useEffect(() => {
+    98→    if (!open) return
+    99→    Promise.all([
+   100→      api<{ drivers: DriverOpt[] }>('/api/drivers'),
+   101→      api<{ vehicles: VehicleOpt[] }>('/api/vehicles'),
+   102→      api<{ trailers: Array<{ id: string; plate: string }> }>('/api/trailers'),
+   103→    ]).then(([d, v, r]) => { setDrivers(d.drivers); setVehicles(v.vehicles); setTrailers(r.trailers) }).catch(() => {})
+   104→  }, [open])
+   105→
+   106→  const planejar = async (planned: boolean) => {
+   107→    setBusy(true); setErro(null); setBloqueios([])
+   108→    try {
+   109→      const res = await api<{ trip: Trip; blockers?: string[]; conflicts?: string[] }>('/api/trips', {
+   110→        method: 'POST',
+   111→        body: {
+   112→          ...form,
+   113→          status: planned ? 'PLANNED' : 'DRAFT',
+   114→          plannedStart: form.plannedStart ? new Date(form.plannedStart).toISOString() : new Date().toISOString(),
+   115→          budgetLines: rubricas.filter((r) => r.valor).map((r) => ({ category: r.category, currency: r.currency, limitMinor: parseMT(r.valor) })),
+   116→        },
+   117→      })
+   118→      aoCriar(); onOpenChange(false); setForm({}); setRubricas([])
+   119→      if (res.blockers?.length) setBloqueios(res.blockers)
+   120→    } catch (e) {
+   121→      const err = e as Error & { payload?: { blockers?: string[]; conflicts?: string[] } }
+   122→      setErro(err.message)
+   123→      const all = [...(err.payload?.blockers ?? []), ...(err.payload?.conflicts ?? [])]
+   124→      if (all.length) setBloqueios(all)
+   125→    } finally { setBusy(false) }
+   126→  }
+   127→
+   128→  return (
+   129→    <Modal open={open} onOpenChange={onOpenChange} title="Nova viagem" wide
+   130→      description="Antes de planear, o sistema verifica automaticamente elegibilidade, documentos, rastreador e conflitos de recursos (FR-032)."
+   131→      footer={
+   132→        <>
+   133→          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+   134→          <Button variant="secondary" disabled={busy} onClick={() => planejar(false)}>Guardar rascunho</Button>
+   135→          <Button disabled={busy} onClick={() => planejar(true)}>{busy ? <AProcessar label="A validar…" /> : 'Validar e planear'}</Button>
+   136→        </>
+   137→      }>
+   138→      {erro && <ErroAlerta erro={erro} />}
+   139→      {bloqueios.length > 0 && (
+   140→        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+   141→          <b className="flex items-center gap-1.5"><ShieldAlert className="h-4 w-4" /> Bloqueios detectados:</b>
+   142→          <ul className="mt-1.5 list-disc pl-5 space-y-0.5">{bloqueios.map((b, i) => <li key={i}>{b}</li>)}</ul>
+   143→        </div>
+   144→      )}
+   145→      <div className="grid gap-3 sm:grid-cols-2">
+   146→        <Campo label="Cliente / Expedidor"><EntradaTexto value={form.client ?? ''} onChange={(e) => setForm({ ...form, client: e.target.value })} /></Campo>
+   147→        <Campo label="Referência da carga"><EntradaTexto value={form.cargoRef ?? ''} onChange={(e) => setForm({ ...form, cargoRef: e.target.value })} /></Campo>
+   148→        <Campo label="Origem" required><EntradaTexto value={form.origin ?? 'Porto da Beira'} onChange={(e) => setForm({ ...form, origin: e.target.value })} /></Campo>
+   149→        <Campo label="Destino" required hint="Ex.: Harare, Zimbabwe"><EntradaTexto value={form.destination ?? ''} onChange={(e) => setForm({ ...form, destination: e.target.value })} /></Campo>
+   150→        <Campo label="Motorista" required hint="Inelegíveis aparecem mas serão bloqueados na validação (FR-021)">
+   151→          <Selecao value={form.driverId ?? ''} onChange={(v) => setForm({ ...form, driverId: v })}
+   152→            opcoes={[{ value: '', label: 'Seleccionar…' }, ...drivers.map((d) => ({ value: d.id, label: `${d.name}${d.eligible ? '' : ' — INELEGÍVEL'}` }))]} />
+   153→        </Campo>
+   154→        <Campo label="Veículo" required hint="Precisa de rastreador operacional (GPS-001)">
+   155→          <Selecao value={form.vehicleId ?? ''} onChange={(v) => setForm({ ...form, vehicleId: v })}
+   156→            opcoes={[{ value: '', label: 'Seleccionar…' }, ...vehicles.map((v) => ({ value: v.id, label: `${v.plate}${v.device ? '' : ' — SEM RASTREADOR'}` }))]} />
+   157→        </Campo>
+   158→        <Campo label="Reboque"><Selecao value={form.trailerId ?? ''} onChange={(v) => setForm({ ...form, trailerId: v })} opcoes={[{ value: '', label: 'Nenhum' }, ...trailers.map((t) => ({ value: t.id, label: t.plate }))]} /></Campo>
+   159→        <Campo label="Carga / descrição"><EntradaTexto value={form.cargoDesc ?? ''} onChange={(e) => setForm({ ...form, cargoDesc: e.target.value })} /></Campo>
+   160→        <Campo label="Início previsto" required><EntradaTexto type="datetime-local" value={form.plannedStart ?? ''} onChange={(e) => setForm({ ...form, plannedStart: e.target.value })} /></Campo>
+   161→        <Campo label="Fim previsto"><EntradaTexto type="datetime-local" value={form.plannedEnd ?? ''} onChange={(e) => setForm({ ...form, plannedEnd: e.target.value })} /></Campo>
+   162→        <Campo label="Distância estimada (km)"><EntradaTexto type="number" value={form.plannedDistanceKm ?? ''} onChange={(e) => setForm({ ...form, plannedDistanceKm: e.target.value })} /></Campo>
+   163→      </div>
+   164→
+   165→      <div className="space-y-2">
+   166→        <div className="flex items-center justify-between">
+   167→          <b className="text-sm">Orçamento por rubrica (FR-033/034)</b>
+   168→          <Button size="sm" variant="outline" onClick={() => setRubricas([...rubricas, { category: 'combustivel', currency: 'MZN', valor: '' }])}><Plus className="mr-1 h-3.5 w-3.5" />Rubrica</Button>
+   169→        </div>
+   170→        {rubricas.length === 0 && <p className="text-xs text-muted-foreground">Sem rubricas — pode adicionar depois.</p>}
+   171→        {rubricas.map((r, i) => (
+   172→          <div key={i} className="grid grid-cols-[1fr_110px_1fr_auto] gap-2 items-end">
+   173→            <Selecao value={r.category} onChange={(v) => setRubricas(rubricas.map((x, j) => j === i ? { ...x, category: v } : x))} opcoes={CATS} />
+   174→            <Selecao value={r.currency} onChange={(v) => setRubricas(rubricas.map((x, j) => j === i ? { ...x, currency: v } : x))} opcoes={[{ value: 'MZN', label: 'MZN' }, { value: 'USD', label: 'USD' }, { value: 'ZAR', label: 'ZAR' }, { value: 'ZWG', label: 'ZWG' }]} />
+   175→            <EntradaTexto placeholder="Limite (ex.: 15.000,00)" value={r.valor} onChange={(e) => setRubricas(rubricas.map((x, j) => j === i ? { ...x, valor: e.target.value } : x))} />
+   176→            <Button size="sm" variant="ghost" className="text-red-600" onClick={() => setRubricas(rubricas.filter((_, j) => j !== i))}>×</Button>
+   177→          </div>
+   178→        ))}
+   179→      </div>
+   180→    </Modal>
+   181→  )
+   182→}
+   183→
+   184→function TripDetail({ tripId, onOpenChange, aoMudar }: { tripId: string | null; onOpenChange: (v: boolean) => void; aoMudar: () => void }) {
+   185→  const { sessao } = useApp()
+   186→  const [detail, setDetail] = React.useState<Detail | null>(null)
+   187→  const [erro, setErro] = React.useState<string | null>(null)
+   188→  const [msg, setMsg] = React.useState<string | null>(null)
+   189→  const [busy, setBusy] = React.useState(false)
+   190→  const [confirmar, setConfirmar] = React.useState<{ action: string; titulo: string; mensagem: string; perigo?: boolean; pedirMotivo?: boolean } | null>(null)
+   191→  const [odoPartida, setOdoPartida] = React.useState('')
+   192→  const [odoChegada, setOdoChegada] = React.useState('')
+   193→  const isDriver = sessao.user.role === 'DRIVER'
+   194→
+   195→  const carregar = React.useCallback(async () => {
+   196→    if (!tripId) return
+   197→    try { setDetail(await api<Detail>(`/api/trips/${tripId}`)); setErro(null) }
+   198→    catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao carregar viagem.') }
+   199→  }, [tripId])
+   200→  React.useEffect(() => { carregar(); setMsg(null) }, [carregar])
+   201→
+   202→  if (!tripId) return null
+   203→
+   204→  const agir = async (action: string, extra: Record<string, unknown> = {}) => {
+   205→    setBusy(true); setErro(null); setMsg(null)
+   206→    try {
+   207→      const r = await api<{ message?: string; pendingCritical?: string[]; blockers?: string[] }>(`/api/trips/${tripId}/actions`, { method: 'POST', body: { action, ...extra } })
+   208→      setMsg(r.message ?? 'Acção executada.')
+   209→      if (r.pendingCritical?.length) setMsg(`Pendências para fecho: ${r.pendingCritical.join(' | ')}`)
+   210→      await carregar(); aoMudar()
+   211→    } catch (e) {
+   212→      const err = e as Error & { payload?: { blockers?: string[]; pending?: string[] } }
+   213→      const blocks = err.payload?.blockers ?? err.payload?.pending
+   214→      setErro(blocks?.length ? `${err.message} — ${blocks.join('; ')}` : err.message)
+   215→    } finally { setBusy(false); setConfirmar(null) }
+   216→  }
+   217→
+   218→  const t = detail?.trip
+   219→  const STATUS_LABEL: Record<string, string> = {
+   220→    DRAFT: 'Rascunho', PLANNED: 'Planeada', AWAITING_CHECKLIST: 'A aguardar checklist', AUTHORIZED_DEPARTURE: 'Autorizada para partida',
+   221→    IN_TRANSIT: 'Em trânsito', PAUSED: 'Em pausa / retida', ARRIVED: 'Chegada registada', AWAITING_RECONCILIATION: 'A aguardar reconciliação', CLOSED: 'Fechada', CANCELLED: 'Cancelada',
+   222→  }
+   223→
+   224→  return (
+   225→    <Modal open={!!tripId} onOpenChange={onOpenChange} title={t ? `Viagem ${t.code}` : 'Viagem'} description={t ? `${t.origin} → ${t.destination} • ${t.vehicle?.plate ?? ''} • ${t.driver?.name ?? ''}` : ''} wide>
+   226→      {!detail ? <AProcessar /> : (
+   227→        <div className="space-y-4">
+   228→          {erro && <ErroAlerta erro={erro} />}
+   229→          {msg && <div className="rounded-md border border-teal-300 bg-teal-50 px-3 py-2 text-sm text-teal-900">{msg}</div>}
+   230→
+   231→          <div className="flex flex-wrap items-center gap-2">
+   232→            <StatusBadge estado={t!.status} mapa={STATUS_LABEL} />
+   233→            {detail.device && <Badge variant="outline" className={detail.device.status === 'OPERATIONAL' ? 'border-emerald-400 text-emerald-700' : 'border-amber-400 text-amber-700'}>Rastreador: {detail.device.status}</Badge>}
+   234→            {t!.isDemo && <Badge variant="outline" className="border-amber-500 text-amber-600">DEMO</Badge>}
+   235→            <span className="text-xs text-muted-foreground">Previsto: {fmtData(t!.plannedStart, true)}</span>
+   236→          </div>
+   237→
+   238→          {/* Accões do ciclo de vida — visíveis apenas quando permitidas (DEV-004) */}
+   239→          {!isDriver && (
+   240→            <Panel title="Acções do ciclo de vida">
+   241→              <div className="flex flex-wrap gap-2">
+   242→                {t!.status === 'DRAFT' && <Button size="sm" onClick={() => agir('plan')}>Validar e planear</Button>}
+   243→                {t!.status === 'PLANNED' && <Button size="sm" onClick={() => agir('send_to_checklist')}>Enviar para checklist pré-partida</Button>}
+   244→                {t!.status === 'AWAITING_CHECKLIST' && (
+   245→                  <Button size="sm" variant="outline" disabled title="A autorização exige checklist aprovada (FR-035) — sem bypass (FR-044)">
+   246→                    Autorizar partida (bloqueado até checklist)
+   247→                  </Button>
+   248→                )}
+   249→                {t!.status === 'AWAITING_CHECKLIST' && detail && <Button size="sm" disabled>{'Checklist pendente'}</Button>}
+   250→                {t!.status === 'IN_TRANSIT' && (
+   251→                  <Button size="sm" variant="outline" onClick={() => setConfirmar({ action: 'pause', titulo: 'Registar pausa/retida', mensagem: 'Registe motivo, local e previsão (§5.1).', pedirMotivo: true })}>Registar pausa</Button>
+   252→                )}
+   253→                {t!.status === 'PAUSED' && <Button size="sm" onClick={() => agir('resume')}>Retomar trânsito</Button>}
+   254→                {t!.status !== 'DRAFT' && !['CLOSED', 'CANCELLED'].includes(t!.status) && (
+   255→                  <Button size="sm" variant="outline" className="text-red-700" onClick={() => setConfirmar({ action: 'cancel', titulo: 'Cancelar viagem', mensagem: 'O cancelamento exige motivo e fica registado no histórico (§5.1).', perigo: true, pedirMotivo: true })}>Cancelar viagem</Button>
+   256→                )}
+   257→              </div>
+   258→            </Panel>
+   259→          )}
+   260→
+   261→          {/* Partida / chegada — motorista ou escritório */}
+   262→          {['AUTHORIZED_DEPARTURE', 'IN_TRANSIT', 'PAUSED'].includes(t!.status) && (
+   263→            <Panel title={t!.status === 'AUTHORIZED_DEPARTURE' ? 'Registar partida (FR-036)' : 'Registar chegada'}>
+   264→              {t!.status === 'AUTHORIZED_DEPARTURE' ? (
+   265→                <div className="flex flex-wrap items-end gap-2">
+   266→                  <Campo label="Odómetro de partida (km)" required><EntradaTexto type="number" value={odoPartida} onChange={(e) => setOdoPartida(e.target.value)} /></Campo>
+   267→                  <Button size="sm" disabled={busy || !odoPartida} onClick={() => agir('depart', { departureOdometerKm: Number(odoPartida) })}>Confirmar partida</Button>
+   268→                </div>
+   269→              ) : (
+   270→                <div className="flex flex-wrap items-end gap-2">
+   271→                  <Campo label="Odómetro de chegada (km)"><EntradaTexto type="number" value={odoChegada} onChange={(e) => setOdoChegada(e.target.value)} /></Campo>
+   272→                  <Button size="sm" disabled={busy} onClick={() => agir('arrive', { arrivalOdometerKm: odoChegada ? Number(odoChegada) : undefined })}>Confirmar chegada</Button>
+   273→                </div>
+   274→              )}
+   275→            </Panel>
+   276→          )}
+   277→
+   278→          {/* Checklist pré-partida */}
+   279→          <ChecklistSection detail={detail} aoMudar={carregar} podeSubmeter={isDriver || ['COMPANY_ADMIN', 'PLATFORM_ADMIN', 'FLEET_MANAGER', 'DISPATCHER', 'BRANCH_MANAGER'].includes(sessao.user.role)} />
+   280→
+   281→          {/* Orçamento */}
+   282→          {detail.budget && !isDriver && (
+   283→            <Panel title="Orçamento vs realizado (FIN-010)" description="Pendentes e aprovados apresentados separadamente (§15.3)">
+   284→              <div className="grid gap-3 sm:grid-cols-3 mb-3">
+   285→                <Kpi label="Limite" value={fmtMT(detail.budget.totalLimit, detail.budget.baseCurrency)} />
+   286→                <Kpi label="Pendente" value={fmtMT(detail.budget.totalPending, detail.budget.baseCurrency)} tone="warn" />
+   287→                <Kpi label="Aprovado" value={fmtMT(detail.budget.totalApproved, detail.budget.baseCurrency)} tone="ok" />
+   288→              </div>
+   289→              {detail.budget.lines.length > 0 && (
+   290→                <div className="space-y-1.5">
+   291→                  {detail.budget.lines.map((l) => (
+   292→                    <div key={l.category} className="flex items-center gap-2 text-sm">
+   293→                      <span className="w-40 shrink-0 text-muted-foreground">{CATS.find((c) => c.value === l.category)?.label ?? l.category}</span>
+   294→                      <div className="h-2 flex-1 rounded bg-muted overflow-hidden">
+   295→                        <div className={`h-full ${l.pct >= 100 ? 'bg-red-500' : l.pct >= 80 ? 'bg-amber-500' : 'bg-teal-600'}`} style={{ width: `${Math.min(100, l.pct)}%` }} />
+   296→                      </div>
+   297→                      <span className="w-28 text-right tabular-nums">{fmtMT(l.pendingMinor + l.approvedMinor, detail.budget!.baseCurrency)}</span>
+   298→                      <span className="w-12 text-right text-xs tabular-nums">{l.pct}%</span>
+   299→                    </div>
+   300→                  ))}
+   301→                </div>
+   302→              )}
+   303→              {detail.budget.alerts.length > 0 && (
+   304→                <div className="mt-3 rounded border border-amber-300 bg-amber-50 p-2.5 text-sm text-amber-900">
+   305→                  {detail.budget.alerts.map((a, i) => <div key={i}>⚠ {a}</div>)}
+   306→                </div>
+   307→              )}
+   308→            </Panel>
+   309→          )}
+   310→
+   311→          {/* Despesas da viagem */}
+   312→          <Panel title={`Despesas da viagem (${detail.expenses.length})`}>
+   313→            {detail.expenses.length === 0 ? <p className="text-sm text-muted-foreground">Sem despesas registadas.</p> : (
+   314→              <div className="divide-y text-sm">
+   315→                {detail.expenses.map((e) => (
+   316→                  <div key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+   317→                    <span className="font-medium">{e.code}</span>
+   318→                    <span className="text-muted-foreground">{fmtData(e.expenseDate)}</span>
+   319→                    <span>{fmtMT(e.amountMinor, e.currency)}</span>
+   320→                    <StatusBadge estado={e.status} mapa={{}} />
+   321→                    {e.vendor && <span className="text-xs text-muted-foreground">{e.vendor}</span>}
+   322→                  </div>
+   323→                ))}
+   324→              </div>
+   325→            )}
+   326→          </Panel>
+   327→
+   328→          {/* Eventos + ocorrências */}
+   329→          <Panel title={`Ocorrências (${detail.incidents.length})`}>
+   330→            {detail.incidents.length === 0 ? <p className="text-sm text-muted-foreground">Sem ocorrências.</p> : (
+   331→              <div className="divide-y text-sm">
+   332→                {detail.incidents.map((i) => (
+   333→                  <div key={i.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+   334→                    <StatusBadge estado={i.severity} mapa={{}} />
+   335→                    <span className="font-medium">{i.type}</span>
+   336→                    <span className="text-muted-foreground">{i.description}</span>
+   337→                    <span className="ml-auto text-xs text-muted-foreground">{fmtData(i.deviceTime, true)}</span>
+   338→                  </div>
+   339→                ))}
+   340→              </div>
+   341→            )}
+   342→          </Panel>
+   343→
+   344→          {/* Fecho */}
+   345→          {!isDriver && ['ARRIVED', 'AWAITING_RECONCILIATION'].includes(t!.status) && (
+   346→            <Panel title="Fecho operacional e financeiro (FR-038)">
+   347→              {t!.closeBlockers && JSON.parse(t!.closeBlockers).length > 0 && (
+   348→                <div className="mb-3 rounded border border-amber-300 bg-amber-50 p-2.5 text-sm text-amber-900">
+   349→                  <b>Pendências detectadas:</b>
+   350→                  <ul className="list-disc pl-5">{(JSON.parse(t!.closeBlockers) as string[]).map((b, i) => <li key={i}>{b}</li>)}</ul>
+   351→                </div>
+   352→              )}
+   353→              <div className="flex flex-wrap gap-2">
+   354→                {t!.status === 'ARRIVED' && <Button size="sm" onClick={() => agir('request_close')}>Solicitar fecho / reconciliação</Button>}
+   355→                {t!.status === 'AWAITING_RECONCILIATION' && (
+   356→                  <>
+   357→                    <Button size="sm" onClick={() => setConfirmar({ action: 'close', titulo: 'Fechar viagem', mensagem: 'O fecho é auditado. Pendências críticas bloqueiam o fecho (AT-023).' })}>Fechar viagem</Button>
+   358→                    <Button size="sm" variant="outline" onClick={() => setConfirmar({ action: 'close', titulo: 'Fechar com excepção autorizada', mensagem: 'Somente finanças/administração pode fechar com pendências excepcionadas, com motivo auditado.', perigo: true, pedirMotivo: true })}>Fechar com excepção</Button>
+   359→                  </>
+   360→                )}
+   361→              </div>
+   362→            </Panel>
+   363→          )}
+   364→        </div>
+   365→      )}
+   366→
+   367→      <Confirmacao open={!!confirmar} onOpenChange={(v) => !v && setConfirmar(null)}
+   368→        titulo={confirmar?.titulo ?? ''} mensagem={confirmar?.mensagem ?? ''} perigo={confirmar?.perigo} pedirMotivo={confirmar?.pedirMotivo}
+   369→        onConfirm={(motivo) => confirmar && agir(confirmar.action, { reason: motivo || undefined, force: confirmar.action === 'close' && confirmar.perigo })} />
+   370→    </Modal>
+   371→  )
+   372→}
+   373→
+   374→function ChecklistSection({ detail, aoMudar, podeSubmeter }: { detail: Detail; aoMudar: () => void; podeSubmeter: boolean }) {
+   375→  const [respostas, setRespostas] = React.useState<Record<string, boolean>>({})
+   376→  const [notas, setNotas] = React.useState<Record<string, string>>({})
+   377→  const [busy, setBusy] = React.useState(false)
+   378→  const [resultado, setResultado] = React.useState<string | null>(null)
+   379→  const [erro, setErro] = React.useState<string | null>(null)
+   380→  const tripId = detail.trip.id
+   381→  const run = (detail.trip as unknown as { checklist?: { itemsJson: string; status: string; blockedReason?: string | null } }).checklist
+   382→
+   383→  React.useEffect(() => {
+   384→    if (run) {
+   385→      const items = JSON.parse(run.itemsJson) as ChecklistItem[]
+   386→      const inicial: Record<string, boolean> = {}
+   387→      for (const i of items) if (i.ok !== undefined) inicial[i.key] = i.ok
+   388→      setRespostas(inicial)
+   389→    }
+   390→  }, [run?.itemsJson])  
+   391→
+   392→  if (!run) {
+   393→    return <Panel title="Checklist pré-partida"><p className="text-sm text-muted-foreground">Checklist ainda não instanciada para esta viagem. O despacho envia para checklist quando a viagem está planeada.</p></Panel>
+   394→  }
+   395→
+   396→  const items = JSON.parse(run.itemsJson) as ChecklistItem[]
+   397→  const todosRespondidos = items.every((i) => respostas[i.key] !== undefined)
+   398→
+   399→  const submeter = async () => {
+   400→    setBusy(true); setErro(null); setResultado(null)
+   401→    try {
+   402→      const r = await api<{ passed: boolean; message: string; blockers: string[] }>(`/api/trips/${tripId}/checklist`, {
+   403→        method: 'POST',
+   404→        body: { items: items.map((i) => ({ key: i.key, ok: respostas[i.key], note: notas[i.key] })) },
+   405→      })
+   406→      setResultado(r.message)
+   407→      aoMudar()
+   408→    } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao submeter checklist.') }
+   409→    finally { setBusy(false) }
+   410→  }
+   411→
+   412→  return (
+   413→    <Panel title="Checklist pré-partida (§6.5)" description="Itens bloqueantes falhados impedem a autorização de partida — sem botão de continuação forçada (FR-044, AT-003)."
+   414→      actions={<StatusBadge estado={run.status} mapa={{ PENDING: 'Pendente', PASSED: 'Aprovada', FAILED: 'Bloqueada' }} />}>
+   415→      {run.status === 'FAILED' && run.blockedReason && (
+   416→        <div className="mb-3 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+   417→          <b className="flex items-center gap-1.5"><ShieldAlert className="h-4 w-4" /> Viagem bloqueada:</b>
+   418→          <ul className="mt-1 list-disc pl-5">{run.blockedReason.split(' | ').map((b, i) => <li key={i}>{b}</li>)}</ul>
+   419→          <p className="mt-1 text-xs">Corrija o item e submeta novamente. Excepções a requisitos de segurança exigem procedimento formal fora da aplicação (FR-044).</p>
+   420→        </div>
+   421→      )}
+   422→      {run.status === 'PASSED' && (
+   423→        <div className="mb-3 rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800 flex items-center gap-2">
+   424→          <ShieldCheck className="h-4 w-4" /> Checklist aprovada — viagem pronta para autorização de partida.
+   425→        </div>
+   426→      )}
+   427→      <div className="space-y-2">
+   428→        {items.map((item) => (
+   429→          <div key={item.key} className={`flex flex-wrap items-start gap-3 rounded-lg border p-2.5 ${respostas[item.key] === false && item.blocking ? 'border-red-300 bg-red-50' : ''}`}>
+   430→            <Checkbox id={item.key} checked={respostas[item.key] ?? false}
+   431→              onCheckedChange={(v) => podeSubmeter && setRespostas({ ...respostas, [item.key]: v === true })}
+   432→              disabled={!podeSubmeter || run.status === 'PASSED'} className="mt-0.5" />
+   433→            <label htmlFor={item.key} className="flex-1 text-sm cursor-pointer">
+   434→              {item.label}
+   435→              {item.blocking && <Badge variant="outline" className="ml-2 border-red-300 text-red-700 text-[10px]">BLOQUEANTE</Badge>}
+   436→              {item.key === 'carregador_telemovel' && <span className="ml-1.5 text-[10px] font-bold text-amber-700">REQUISITO CRÍTICO — CARREGADOR</span>}
+   437→            </label>
+   438→            <EntradaTexto placeholder="Nota (opcional)" className="h-8 w-44 text-xs" value={notas[item.key] ?? ''}
+   439→              onChange={(e) => setNotas({ ...notas, [item.key]: e.target.value })} disabled={run.status === 'PASSED'} />
+   440→          </div>
+   441→        ))}
+   442→      </div>
+   443→      {podeSubmeter && run.status !== 'PASSED' && (
+   444→        <div className="mt-3 flex items-center gap-2">
+   445→          <Button size="sm" disabled={busy || !todosRespondidos} onClick={submeter}>
+   446→            {busy ? 'A submeter…' : 'Submeter checklist'}
+   447→          </Button>
+   448→          {!todosRespondidos && <span className="text-xs text-muted-foreground">Responda a todos os itens — incluindo o carregador (requisito crítico).</span>}
+   449→        </div>
+   450→      )}
+   451→      {resultado && <div className="mt-3 rounded border border-teal-300 bg-teal-50 p-2.5 text-sm text-teal-900">{resultado}</div>}
+   452→      {erro && <div className="mt-3"><ErroAlerta erro={erro} /></div>}
+   453→    </Panel>
+   454→  )
+   455→}
+   456→

@@ -1,0 +1,519 @@
+     1→// =====================================================================
+     2→// SIGFCO — App do Motorista (§8, MOB-001..005, OFF-001..010)
+     3→// Offline-first: registos em IndexedDB com UUID; estados visíveis
+     4→// ("Guardado neste telemóvel" → "Sincronizado" — OFF-006); fotos
+     5→// comprimidas (AT-011); reenvio idempotente (AT-009); SOS discreto com
+     6→// confirmação (GPS-026); aviso de não usar o telemóvel em movimento
+     7→// (MOB-005). Limitações de PWA declaradas sem falsas promessas (§8.3).
+     8→// =====================================================================
+     9→'use client'
+    10→
+    11→import * as React from 'react'
+    12→import { useApp } from './root'
+    13→import { api, fmtData, fmtMT, parseMT } from '@/lib/client/api'
+    14→import {
+    15→  filaListar, filaGuardar, filaMarcar, filaRemover, novoUuid, comprimirImagem, obterPosicao,
+    16→  iniciarAutoSync, type FilaItem,
+    17→} from '@/lib/client/offline'
+    18→import { Button } from '@/components/ui/button'
+    19→import { Card, CardContent } from '@/components/ui/card'
+    20→import { Input } from '@/components/ui/input'
+    21→import { Label } from '@/components/ui/label'
+    22→import { Badge } from '@/components/ui/badge'
+    23→import { Checkbox } from '@/components/ui/checkbox'
+    24→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+    25→import { ErroAlerta, Confirmacao } from './ui-kit'
+    26→import {
+    27→  Route, Camera, AlertTriangle, Wifi, WifiOff, RefreshCw, CheckCircle2, Clock,
+    28→  CloudUpload, Siren, MapPin, ChevronRight, ShieldAlert,
+    29→} from 'lucide-react'
+    30→
+    31→type Trip = { id: string; code: string; origin: string; destination: string; status: string; client?: string; cargoDesc?: string; plannedStart: string; departureAt?: string | null }
+    32→type ChecklistRun = { id: string; itemsJson: string; status: string }
+    33→type ExpenseStatus = { id: string; code: string; category: string; amountMinor: number; currency: string; status: string; expenseDate: string }
+    34→type Detail = { trip: Trip; expenses: ExpenseStatus[]; checklist: ChecklistRun | null }
+    35→
+    36→const CATS = [
+    37→  { value: 'combustivel', label: 'Combustível' }, { value: 'portagens', label: 'Portagens' },
+    38→  { value: 'alfandega', label: 'Alfândega' }, { value: 'per_diem', label: 'Per diem' },
+    39→  { value: 'estacionamento', label: 'Estacionamento' }, { value: 'alimentacao', label: 'Alimentação' },
+    40→  { value: 'alojamento', label: 'Alojamento' }, { value: 'comunicacao', label: 'Comunicação' },
+    41→  { value: 'manutencao_emergencia', label: 'Manutenção emerg.' }, { value: 'outros', label: 'Outros' },
+    42→]
+    43→
+    44→export function MotoristaApp() {
+    45→  const { sessao, logout } = useApp()
+    46→  const [detail, setDetail] = React.useState<Detail | null>(null)
+    47→  const [fila, setFila] = React.useState<FilaItem[]>([])
+    48→  const [online, setOnline] = React.useState(true)
+    49→  const [gpsOk, setGpsOk] = React.useState<'ok' | 'negado' | 'indisponivel' | 'verificando'>('verificando')
+    50→  const [erro, setErro] = React.useState<string | null>(null)
+    51→  const [vista, setVista] = React.useState<'viagem' | 'despesas' | 'fila'>('viagem')
+    52→
+    53→  const carregar = React.useCallback(async () => {
+    54→    try {
+    55→      const list = await api<{ trips: Trip[] }>('/api/trips')
+    56→      const activa = list.trips.find((t) => ['AWAITING_CHECKLIST', 'AUTHORIZED_DEPARTURE', 'IN_TRANSIT', 'PAUSED', 'ARRIVED'].includes(t.status))
+    57→      if (activa) {
+    58→        const det = await api<Detail>(`/api/trips/${activa.id}`)
+    59→        setDetail(det); setErro(null)
+    60→      } else setDetail(null)
+    61→    } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao carregar viagem.') }
+    62→  }, [])
+    63→
+    64→  const refrescarFila = React.useCallback(() => { filaListar().then(setFila) }, [])
+    65→
+    66→  React.useEffect(() => {
+    67→    carregar(); refrescarFila()
+    68→    setOnline(navigator.onLine)
+    69→    const on = () => setOnline(true), off = () => setOnline(false)
+    70→    window.addEventListener('online', on); window.addEventListener('offline', off)
+    71→    const limpar = iniciarAutoSync(refrescarFila)
+    72→    // FR-052: estado da localização no momento do registo
+    73→    if ('geolocation' in navigator) {
+    74→      navigator.permissions?.query({ name: 'geolocation' as PermissionName }).then((p) => {
+    75→        setGpsOk(p.state === 'granted' ? 'ok' : p.state === 'denied' ? 'negado' : 'indisponivel')
+    76→      }).catch(() => setGpsOk('indisponivel'))
+    77→    } else setGpsOk('indisponivel')
+    78→    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); limpar() }
+    79→  }, [carregar, refrescarFila])
+    80→
+    81→  const pendentes = fila.filter((f) => f.estadoLocal !== 'SINCRONIZADO')
+    82→
+    83→  return (
+    84→    <div className="min-h-screen flex flex-col bg-zinc-100 pb-16">
+    85→      {/* Cabeçalho compacto (MOB-004: uso com uma mão) */}
+    86→      <header className="sticky top-0 z-20 bg-zinc-950 text-zinc-100 px-4 py-3">
+    87→        <div className="flex items-center justify-between gap-2">
+    88→          <div className="flex items-center gap-2">
+    89→            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-sm font-bold">SF</span>
+    90→            <div>
+    91→              <div className="text-sm font-semibold leading-tight">{sessao.driver?.name ?? sessao.user.name.split(' (')[0]}</div>
+    92→              <div className="text-[11px] text-zinc-400">App do Motorista • DEMO</div>
+    93→            </div>
+    94→          </div>
+    95→          <div className="flex items-center gap-2">
+    96→            {online ? <Badge className="bg-emerald-700 text-white gap-1"><Wifi className="h-3 w-3" />Online</Badge> : <Badge className="bg-amber-600 text-white gap-1"><WifiOff className="h-3 w-3" />Sem internet</Badge>}
+    97→            <Button size="sm" variant="ghost" className="text-zinc-300 hover:bg-zinc-800" onClick={logout}>Sair</Button>
+    98→          </div>
+    99→        </div>
+   100→      </header>
+   101→
+   102→      {/* Aviso de segurança (MOB-005) */}
+   103→      <div className="bg-amber-100 border-b border-amber-300 px-4 py-1.5 text-[11px] text-amber-900 text-center">
+   104→        <ShieldAlert className="inline h-3 w-3 mr-1" />Nunca use o telemóvel enquanto conduz. Interaja apenas com o veículo parado em local seguro.
+   105→      </div>
+   106→
+   107→      <main className="flex-1 mx-auto w-full max-w-lg px-3 py-3 space-y-3">
+   108→        <ErroAlerta erro={erro} />
+   109→
+   110→        {/* Indicadores precisos de GPS e rede (§11.2) */}
+   111→        <div className="grid grid-cols-2 gap-2 text-xs">
+   112→          <div className="rounded-lg bg-white border p-2.5 flex items-center gap-2">
+   113→            <MapPin className={`h-4 w-4 ${gpsOk === 'ok' ? 'text-emerald-600' : 'text-amber-600'}`} />
+   114→            <span>{gpsOk === 'ok' ? 'GPS disponível' : gpsOk === 'negado' ? 'GPS sem permissão' : 'GPS sem fixação'}</span>
+   115→          </div>
+   116→          <div className="rounded-lg bg-white border p-2.5 flex items-center gap-2">
+   117→            <CloudUpload className={`h-4 w-4 ${pendentes.length ? 'text-amber-600' : 'text-emerald-600'}`} />
+   118→            <span>{pendentes.length ? `${pendentes.length} registo(s) pendente(s)` : 'Tudo sincronizado'}</span>
+   119→          </div>
+   120→        </div>
+   121→
+   122→        {vista === 'viagem' && (detail
+   123→          ? <ViagemActiva detail={detail} aoMudar={carregar} gpsOk={gpsOk} />
+   124→          : <SemViagem />)}
+   125→        {vista === 'despesas' && <DespesasMotorista detail={detail} aoMudar={carregar} refrescarFila={refrescarFila} gpsOk={gpsOk} online={online} />}
+   126→        {vista === 'fila' && <FilaSincronizacao fila={fila} refrescar={refrescarFila} />}
+   127→      </main>
+   128→
+   129→      {/* Navegação inferior — alvos tácteis ≥44px (MOB-004) */}
+   130→      <nav className="fixed bottom-0 inset-x-0 z-20 bg-white border-t grid grid-cols-3">
+   131→        {[
+   132→          { id: 'viagem', label: 'Viagem', icon: Route },
+   133→          { id: 'despesas', label: 'Despesas', icon: Camera },
+   134→          { id: 'fila', label: `Fila${pendentes.length ? ` (${pendentes.length})` : ''}`, icon: RefreshCw },
+   135→        ].map((n) => (
+   136→          <button key={n.id} onClick={() => setVista(n.id as typeof vista)}
+   137→            className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] min-h-[48px] ${vista === n.id ? 'text-teal-700 font-semibold' : 'text-zinc-500'}`}>
+   138→            <n.icon className="h-5 w-5" />{n.label}
+   139→          </button>
+   140→        ))}
+   141→      </nav>
+   142→    </div>
+   143→  )
+   144→}
+   145→
+   146→function SemViagem() {
+   147→  return (
+   148→    <Card>
+   149→      <CardContent className="pt-6 text-center text-sm text-muted-foreground space-y-2">
+   150→        <Route className="mx-auto h-10 w-10 text-zinc-300" />
+   151→        <p className="font-medium text-foreground">Sem viagem activa</p>
+   152→        <p>Quando o despacho lhe atribuir uma viagem, ela aparecerá aqui com checklist, despesas e ocorrências.</p>
+   153→      </CardContent>
+   154→    </Card>
+   155→  )
+   156→}
+   157→
+   158→function ViagemActiva({ detail, aoMudar, gpsOk }: { detail: Detail; aoMudar: () => void; gpsOk: string }) {
+   159→  const { trip } = detail
+   160→  const [busy, setBusy] = React.useState(false)
+   161→  const [msg, setMsg] = React.useState<string | null>(null)
+   162→  const [odo, setOdo] = React.useState('')
+   163→  const [sos, setSos] = React.useState(false)
+   164→  const [sosNota, setSosNota] = React.useState('')
+   165→
+   166→  const checklist = detail.checklist ? (JSON.parse(detail.checklist.itemsJson) as Array<{ key: string; label: string; blocking: boolean; ok?: boolean }>) : []
+   167→  const [respostas, setRespostas] = React.useState<Record<string, boolean>>({})
+   168→  React.useEffect(() => {
+   169→    if (detail.checklist) {
+   170→      const inicial: Record<string, boolean> = {}
+   171→      for (const i of checklist) if (i.ok !== undefined) inicial[i.key] = i.ok
+   172→      setRespostas(inicial)
+   173→    }
+   174→  }, [detail.checklist?.itemsJson])  
+   175→
+   176→  const agir = async (action: string, extra: Record<string, unknown> = {}) => {
+   177→    setBusy(true); setMsg(null)
+   178→    try {
+   179→      await api(`/api/trips/${trip.id}/actions`, { method: 'POST', body: { action, ...extra } })
+   180→      aoMudar()
+   181→      setMsg('Registado no sistema.')
+   182→    } catch (e) { setMsg(e instanceof Error ? e.message : 'Falha na acção.') }
+   183→    finally { setBusy(false) }
+   184→  }
+   185→
+   186→  const submeterChecklist = async () => {
+   187→    if (!detail.checklist) return
+   188→    setBusy(true); setMsg(null)
+   189→    try {
+   190→      const r = await api<{ passed: boolean; message: string }>(`/api/trips/${trip.id}/checklist`, {
+   191→        method: 'POST', body: { items: checklist.map((i) => ({ key: i.key, ok: respostas[i.key] })) },
+   192→      })
+   193→      setMsg(r.message); aoMudar()
+   194→    } catch (e) { setMsg(e instanceof Error ? e.message : 'Falha ao submeter checklist.') }
+   195→    finally { setBusy(false) }
+   196→  }
+   197→
+   198→  const enviarSos = async () => {
+   199→    setBusy(true)
+   200→    try {
+   201→      const pos = gpsOk === 'ok' ? await obterPosicao() : null
+   202→      const uuid = novoUuid()
+   203→      // SOS funciona OFFLINE: entra na fila com hora original do dispositivo (OFF-001)
+   204→      await filaGuardar({
+   205→        clientUuid: uuid, type: 'TRIP_EVENT', deviceTime: new Date().toISOString(),
+   206→        payload: { tripId: trip.id, type: 'SOS', note: sosNota || 'Pedido de ajuda (SOS)', lat: pos?.lat, lng: pos?.lng, locSource: pos ? 'BROWSER' : 'NONE', locStatus: pos ? 'OK' : 'UNAVAILABLE' },
+   207→        estadoLocal: 'GUARDADO', tentativas: 0, resumo: `SOS — ${trip.code}`,
+   208→      })
+   209→      setSos(false); setSosNota('')
+   210→      setMsg('SOS registado. Será enviado assim que houver internet.')
+   211→    } finally { setBusy(false) }
+   212→  }
+   213→
+   214→  const STATUS: Record<string, string> = {
+   215→    AWAITING_CHECKLIST: 'A aguardar checklist', AUTHORIZED_DEPARTURE: 'Autorizada para partida',
+   216→    IN_TRANSIT: 'Em trânsito', PAUSED: 'Em pausa / retida', ARRIVED: 'Chegada registada',
+   217→  }
+   218→
+   219→  return (
+   220→    <>
+   221→      <Card>
+   222→        <CardContent className="pt-5 space-y-3">
+   223→          <div className="flex items-start justify-between gap-2">
+   224→            <div>
+   225→              <div className="text-xs text-muted-foreground">Viagem activa</div>
+   226→              <div className="text-lg font-bold">{trip.code}</div>
+   227→            </div>
+   228→            <Badge className="bg-teal-700 text-white">{STATUS[trip.status] ?? trip.status}</Badge>
+   229→          </div>
+   230→          <div className="text-sm">{trip.origin} <ChevronRight className="inline h-4 w-4 text-zinc-400" /> {trip.destination}</div>
+   231→          {trip.cargoDesc && <div className="text-xs text-muted-foreground">Carga: {trip.cargoDesc}{trip.client ? ` • Cliente: ${trip.client}` : ''}</div>}
+   232→          {msg && <div className="rounded-md border border-teal-300 bg-teal-50 px-3 py-2 text-sm text-teal-900">{msg}</div>}
+   233→        </CardContent>
+   234→      </Card>
+   235→
+   236→      {/* Accões rápidas (§11.2: despesa, foto, incidente, checklist, SOS) */}
+   237→      {trip.status === 'AWAITING_CHECKLIST' && (
+   238→        <Card>
+   239→          <CardContent className="pt-5 space-y-2.5">
+   240→            <div className="font-semibold text-sm">Checklist pré-partida — confirme cada item</div>
+   241→            <p className="text-xs text-muted-foreground">O carregador de telemóvel é obrigatório: sem ele a viagem não é autorizada (requisito crítico).</p>
+   242→            {checklist.map((i) => (
+   243→              <label key={i.key} className={`flex items-start gap-2.5 rounded-lg border p-3 text-sm ${respostas[i.key] === false && i.blocking ? 'border-red-300 bg-red-50' : ''}`}>
+   244→                <Checkbox className="mt-0.5" checked={respostas[i.key] ?? false} onCheckedChange={(v) => setRespostas({ ...respostas, [i.key]: v === true })} />
+   245→                <span>{i.label}{i.blocking && <b className="ml-1 text-red-700 text-xs">(obrigatório)</b>}</span>
+   246→              </label>
+   247→            ))}
+   248→            <Button className="w-full min-h-[48px] bg-teal-700 hover:bg-teal-600" disabled={busy || checklist.some((i) => respostas[i.key] === undefined)} onClick={submeterChecklist}>
+   249→              Submeter checklist
+   250→            </Button>
+   251→          </CardContent>
+   252→        </Card>
+   253→      )}
+   254→
+   255→      {trip.status === 'AUTHORIZED_DEPARTURE' && (
+   256→        <Card>
+   257→          <CardContent className="pt-5 space-y-3">
+   258→            <div className="font-semibold text-sm">Registar partida</div>
+   259→            <div className="space-y-1.5">
+   260→              <Label htmlFor="odo">Odómetro de partida (km)</Label>
+   261→              <Input id="odo" type="number" inputMode="numeric" value={odo} onChange={(e) => setOdo(e.target.value)} className="min-h-[48px] text-lg" />
+   262→            </div>
+   263→            <Button className="w-full min-h-[48px] bg-teal-700 hover:bg-teal-600" disabled={busy || !odo} onClick={() => agir('depart', { departureOdometerKm: Number(odo) })}>
+   264→              Confirmar partida
+   265→            </Button>
+   266→          </CardContent>
+   267→        </Card>
+   268→      )}
+   269→
+   270→      {['IN_TRANSIT', 'PAUSED'].includes(trip.status) && (
+   271→        <Card>
+   272→          <CardContent className="pt-5 grid grid-cols-2 gap-2">
+   273→            {trip.status === 'IN_TRANSIT' ? (
+   274→              <Button variant="outline" className="min-h-[48px]" disabled={busy} onClick={() => { const motivo = window.prompt('Motivo da paragem:'); if (motivo) agir('pause', { reason: motivo }) }}>Registar pausa</Button>
+   275→            ) : (
+   276→              <Button className="min-h-[48px] bg-teal-700 hover:bg-teal-600" disabled={busy} onClick={() => agir('resume')}>Retomar viagem</Button>
+   277→            )}
+   278→            <Button variant="outline" className="min-h-[48px]" disabled={busy} onClick={() => { const odoC = window.prompt('Odómetro de chegada (km):'); if (odoC) agir('arrive', { arrivalOdometerKm: Number(odoC) }) }}>Chegada ao destino</Button>
+   279→          </CardContent>
+   280→        </Card>
+   281→      )}
+   282→
+   283→      {trip.status === 'ARRIVED' && (
+   284→        <Card><CardContent className="pt-5 text-sm text-muted-foreground">Chegada registada. Aguarde a revisão do escritório — o fecho é feito pela equipa após conferência de despesas (FR-038).</CardContent></Card>
+   285→      )}
+   286→
+   287→      <Button variant="outline" className="w-full min-h-[48px] border-red-300 text-red-700 hover:bg-red-50" onClick={() => setSos(true)}>
+   288→        <Siren className="mr-2 h-4 w-4" />SOS — pedir ajuda
+   289→      </Button>
+   290→      <Confirmacao open={sos} onOpenChange={setSos} perigo exigirTexto="SOS"
+   291→        titulo="Confirmar SOS"
+   292→        mensagem="Serão enviados a viagem, coordenadas disponíveis e a hora do dispositivo. Confirme apenas em situação real — uso acidental mobiliza resposta (GPS-026)."
+   293→        onConfirm={enviarSos} />
+   294→    </>
+   295→  )
+   296→}
+   297→
+   298→function DespesasMotorista({ detail, aoMudar, refrescarFila, gpsOk, online }: {
+   299→  detail: Detail | null; aoMudar: () => void; refrescarFila: () => void; gpsOk: string; online: boolean
+   300→}) {
+   301→  const [aberto, setAberto] = React.useState(false)
+   302→  const [form, setForm] = React.useState({ categoria: 'combustivel', valor: '', moeda: 'MZN', litros: '', preco: '', posto: '', descricao: '', semComprovativo: '' })
+   303→  const [foto, setFoto] = React.useState<{ dataUrl: string; width: number; height: number } | null>(null)
+   304→  const [busy, setBusy] = React.useState(false)
+   305→  const [msg, setMsg] = React.useState<string | null>(null)
+   306→  const [erro, setErro] = React.useState<string | null>(null)
+   307→
+   308→  const guardar = async (enviar: boolean) => {
+   309→    if (!detail) return
+   310→    setBusy(true); setErro(null); setMsg(null)
+   311→    try {
+   312→      const valorMinor = parseMT(form.valor)
+   313→      if (valorMinor <= 0) throw new Error('Indique o valor da despesa.')
+   314→      const pos = gpsOk === 'ok' ? await obterPosicao() : null
+   315→      const uuid = novoUuid()
+   316→      const agora = new Date().toISOString()
+   317→      await filaGuardar({
+   318→        clientUuid: uuid, type: 'EXPENSE', deviceTime: agora,
+   319→        payload: {
+   320→          tripId: detail.trip.id, category: form.categoria, amountMinor: valorMinor, currency: form.moeda,
+   321→          expenseDate: agora, vendor: form.posto || undefined, description: form.descricao || undefined,
+   322→          liters: form.litros ? Number(form.litros) : undefined,
+   323→          pricePerLiterMinor: form.preco ? Math.round(Number(form.preco.replace(',', '.')) * 100) : undefined,
+   324→          station: form.posto || undefined,
+   325→          lat: pos?.lat, lng: pos?.lng, locPrecisionM: pos?.accuracyM,
+   326→          locSource: pos ? 'BROWSER' : 'NONE',
+   327→          locStatus: pos ? 'OK' : 'UNAVAILABLE',
+   328→          locNote: pos ? undefined : (gpsOk === 'negado' ? 'Permissão de localização negada' : 'Localização indisponível no momento do registo'),
+   329→          noReceiptReason: form.semComprovativo || undefined,
+   330→          dataUrl: foto?.dataUrl, width: foto?.width, height: foto?.height, capturedAt: agora,
+   331→        },
+   332→        estadoLocal: 'GUARDADO', tentativas: 0,
+   333→        resumo: `${CATS.find((c) => c.value === form.categoria)?.label}: ${fmtMT(valorMinor, form.moeda)}`,
+   334→      })
+   335→      // tentar sincronizar imediatamente quando há rede (OFF-005)
+   336→      if (online && enviar) {
+   337→        const { sincronizar } = await import('@/lib/client/offline')
+   338→        await sincronizar()
+   339→      }
+   340→      setForm({ categoria: 'combustivel', valor: '', moeda: 'MZN', litros: '', preco: '', posto: '', descricao: '', semComprovativo: '' })
+   341→      setFoto(null); setAberto(false)
+   342→      setMsg(online ? 'Despesa guardada e submetida.' : 'Despesa guardada NESTE TELEMÓVEL — será enviada automaticamente quando houver internet.')
+   343→      refrescarFila(); aoMudar()
+   344→    } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao guardar despesa.') }
+   345→    finally { setBusy(false) }
+   346→  }
+   347→
+   348→  const pegarFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+   349→    const file = e.target.files?.[0]
+   350→    if (!file) return
+   351→    try {
+   352→      const compressed = await comprimirImagem(file)
+   353→      setFoto(compressed)
+   354→    } catch { setErro('Não foi possível comprimir a fotografia.') }
+   355→  }
+   356→
+   357→  const detalhes = detail?.expenses ?? []
+   358→
+   359→  return (
+   360→    <>
+   361→      <div className="grid grid-cols-2 gap-2">
+   362→        <Button className="min-h-[48px] bg-teal-700 hover:bg-teal-600" onClick={() => setAberto(true)}><Camera className="mr-2 h-4 w-4" />Nova despesa + foto</Button>
+   363→        <Button variant="outline" className="min-h-[48px]" onClick={() => setAberto(true)}>Despesa sem câmara</Button>
+   364→      </div>
+   365→
+   366→      <Card>
+   367→        <CardContent className="pt-4">
+   368→          <div className="font-semibold text-sm mb-2">Despesas desta viagem</div>
+   369→          {detalhes.length === 0 && <p className="text-sm text-muted-foreground py-3 text-center">Sem despesas sincronizadas ainda.</p>}
+   370→          <div className="divide-y">
+   371→            {detalhes.map((e) => (
+   372→              <div key={e.id} className="flex items-center justify-between py-2 text-sm">
+   373→                <div>
+   374→                  <div className="font-medium">{fmtMT(e.amountMinor, e.currency)}</div>
+   375→                  <div className="text-xs text-muted-foreground">{CATS.find((c) => c.value === e.category)?.label ?? e.category} • {fmtData(e.expenseDate)}</div>
+   376→                </div>
+   377→                <Badge variant="outline" className={e.status === 'APPROVED' || e.status === 'RECONCILED' ? 'border-emerald-400 text-emerald-700' : e.status === 'REJECTED' ? 'border-red-400 text-red-700' : 'border-amber-400 text-amber-700'}>
+   378→                  {e.status === 'SUBMITTED' ? 'Pendente aprovação' : e.status === 'APPROVED' ? 'Aprovada' : e.status === 'RECONCILED' ? 'Reconciliada' : e.status === 'REJECTED' ? 'Rejeitada' : e.status === 'RETURNED' ? 'Devolver' : e.status}
+   379→                </Badge>
+   380→              </div>
+   381→            ))}
+   382→          </div>
+   383→        </CardContent>
+   384→      </Card>
+   385→
+   386→      {/* Formulário de despesa: poucos campos por etapa (MOB-004) */}
+   387→      <Dialog open={aberto} onOpenChange={setAberto}>
+   388→        <DialogContent className="max-h-[92vh] overflow-y-auto">
+   389→          <DialogHeader><DialogTitle>Registar despesa</DialogTitle></DialogHeader>
+   390→          <div className="space-y-3">
+   391→            <ErroAlerta erro={erro} />
+   392→            <div className="space-y-1.5">
+   393→              <Label>Categoria</Label>
+   394→              <div className="grid grid-cols-3 gap-1.5">
+   395→                {CATS.map((c) => (
+   396→                  <button key={c.value} onClick={() => setForm({ ...form, categoria: c.value })}
+   397→                    className={`rounded-lg border px-2 py-2.5 text-xs min-h-[44px] ${form.categoria === c.value ? 'border-teal-600 bg-teal-50 font-semibold text-teal-800' : ''}`}>
+   398→                    {c.label}
+   399→                  </button>
+   400→                ))}
+   401→              </div>
+   402→            </div>
+   403→            <div className="grid grid-cols-2 gap-2">
+   404→              <div className="space-y-1.5">
+   405→                <Label>Valor</Label>
+   406→                <Input inputMode="decimal" placeholder="0,00" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} className="min-h-[48px] text-lg" />
+   407→              </div>
+   408→              <div className="space-y-1.5">
+   409→                <Label>Moeda</Label>
+   410→                <div className="grid grid-cols-4 gap-1">
+   411→                  {['MZN', 'USD', 'ZAR', 'ZWG'].map((m) => (
+   412→                    <button key={m} onClick={() => setForm({ ...form, moeda: m })}
+   413→                      className={`rounded border py-2 text-xs min-h-[44px] ${form.moeda === m ? 'border-teal-600 bg-teal-50 font-bold' : ''}`}>{m}</button>
+   414→                  ))}
+   415→                </div>
+   416→              </div>
+   417→            </div>
+   418→            {form.categoria === 'combustivel' && (
+   419→              <div className="grid grid-cols-2 gap-2">
+   420→                <div className="space-y-1.5"><Label>Litros</Label><Input inputMode="decimal" value={form.litros} onChange={(e) => setForm({ ...form, litros: e.target.value })} className="min-h-[48px]" /></div>
+   421→                <div className="space-y-1.5"><Label>Preço/litro</Label><Input inputMode="decimal" value={form.preco} onChange={(e) => setForm({ ...form, preco: e.target.value })} className="min-h-[48px]" /></div>
+   422→              </div>
+   423→            )}
+   424→            <div className="space-y-1.5">
+   425→              <Label>Estabelecimento / posto</Label>
+   426→              <Input value={form.posto} onChange={(e) => setForm({ ...form, posto: e.target.value })} className="min-h-[48px]" />
+   427→            </div>
+   428→            <div className="space-y-1.5">
+   429→              <Label>Fotografia do talão</Label>
+   430→              <label className="flex min-h-[48px] cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-teal-500/60 bg-teal-50/50 px-4 text-sm text-teal-800">
+   431→                <Camera className="h-4 w-4" />{foto ? 'Fotografia pronta (comprimida no telemóvel)' : 'Tirar foto / escolher imagem'}
+   432→                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={pegarFoto} />
+   433→              </label>
+   434→              {foto && { }}
+   435→              {foto && <img src={foto.dataUrl} alt="Pré-visualização do talão" className="max-h-40 rounded border" />}
+   436→            </div>
+   437→            {!foto && (
+   438→              <div className="space-y-1.5">
+   439→                <Label>Sem comprovativo — justificação (se autorizada pela política)</Label>
+   440→                <Input value={form.semComprovativo} onChange={(e) => setForm({ ...form, semComprovativo: e.target.value })} placeholder="Ex.: posto sem máquina fiscal" className="min-h-[48px]" />
+   441→              </div>
+   442→            )}
+   443→            <div className="text-xs text-muted-foreground">
+   444→              {gpsOk === 'ok' ? 'A localização será anexada ao registo (FR-052).' : gpsOk === 'negado' ? 'GPS sem permissão — a despesa será sinalizada para revisão (motivo exigido).' : 'Sem fixação GPS — será registado o motivo e sinalizado para revisão.'}
+   445→            </div>
+   446→          </div>
+   447→          <DialogFooter className="flex-col gap-2 sm:flex-col">
+   448→            <Button className="w-full min-h-[48px] bg-teal-700 hover:bg-teal-600" disabled={busy} onClick={() => guardar(true)}>
+   449→              {busy ? 'A guardar…' : online ? 'Guardar e enviar' : 'Guardar no telemóvel'}
+   450→            </Button>
+   451→            <Button variant="outline" className="w-full min-h-[44px]" onClick={() => setAberto(false)}>Cancelar</Button>
+   452→          </DialogFooter>
+   453→        </DialogContent>
+   454→      </Dialog>
+   455→      {msg && <div className="rounded-md border border-teal-300 bg-teal-50 px-3 py-2 text-sm text-teal-900">{msg}</div>}
+   456→    </>
+   457→  )
+   458→}
+   459→
+   460→function FilaSincronizacao({ fila, refrescar }: { fila: FilaItem[]; refrescar: () => void }) {
+   461→  const [busy, setBusy] = React.useState(false)
+   462→  const sincronizarAgora = async () => {
+   463→    setBusy(true)
+   464→    try {
+   465→      const { sincronizar } = await import('@/lib/client/offline')
+   466→      await sincronizar(); refrescar()
+   467→    } finally { setBusy(false) }
+   468→  }
+   469→  const apagarSincronizados = async () => {
+   470→    for (const i of fila.filter((f) => f.estadoLocal === 'SINCRONIZADO')) await filaRemover(i.clientUuid)
+   471→    refrescar()
+   472→  }
+   473→
+   474→  const ESTADO_UI: Record<string, { label: string; cor: string; icon: React.ComponentType<{ className?: string }> }> = {
+   475→    GUARDADO: { label: 'Guardado neste telemóvel', cor: 'border-zinc-300 text-zinc-600', icon: Clock },
+   476→    A_ENVIAR: { label: 'A sincronizar…', cor: 'border-teal-400 text-teal-700', icon: RefreshCw },
+   477→    SINCRONIZADO: { label: 'Sincronizado (confirmado pelo servidor)', cor: 'border-emerald-400 text-emerald-700', icon: CheckCircle2 },
+   478→    ERRO: { label: 'Erro que exige acção', cor: 'border-red-400 text-red-700', icon: AlertTriangle },
+   479→  }
+   480→
+   481→  return (
+   482→    <>
+   483→      <Card>
+   484→        <CardContent className="pt-4 space-y-2">
+   485→          <div className="flex items-center justify-between">
+   486→            <div className="font-semibold text-sm">Fila de sincronização (OFF-006)</div>
+   487→            <Button size="sm" variant="outline" disabled={busy} onClick={sincronizarAgora}><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} />Tentar agora</Button>
+   488→          </div>
+   489→          <p className="text-xs text-muted-foreground">
+   490→            Registos guardados no armazenamento permanente do telemóvel — sobrevivem a fecho da aplicação ou reinício (AT-010).
+   491→            O envio é automático quando a internet regressa; cada registo só é marcado como enviado após confirmação do servidor (OFF-004).
+   492→          </p>
+   493→        </CardContent>
+   494→      </Card>
+   495→      {fila.length === 0 && <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">Fila vazia.</CardContent></Card>}
+   496→      <div className="space-y-2">
+   497→        {fila.map((item) => {
+   498→          const ui = ESTADO_UI[item.estadoLocal]
+   499→          const Icon = ui.icon
+   500→          return (
+   501→            <div key={item.clientUuid} className={`rounded-lg border bg-white p-3 ${ui.cor}`}>
+   502→              <div className="flex items-center justify-between gap-2">
+   503→                <div className="flex items-center gap-2 text-sm font-medium"><Icon className="h-4 w-4" />{item.resumo}</div>
+   504→                {item.estadoLocal === 'SINCRONIZADO' && (
+   505→                  <button className="text-xs text-zinc-400 underline" onClick={apagarSincronizados}>limpar</button>
+   506→                )}
+   507→              </div>
+   508→              <div className="mt-1 text-xs">{ui.label} • hora do dispositivo: {fmtData(item.deviceTime, true)}</div>
+   509→              {item.erro && <div className="mt-1 text-xs text-red-700">{item.erro}</div>}
+   510→              {item.tentativas > 0 && <div className="text-xs text-zinc-400">tentativas: {item.tentativas}</div>}
+   511→              <div className="text-[10px] text-zinc-400 mt-0.5">UUID: {item.clientUuid.slice(0, 18)}…</div>
+   512→            </div>
+   513→          )
+   514→        })}
+   515→      </div>
+   516→    </>
+   517→  )
+   518→}
+   519→

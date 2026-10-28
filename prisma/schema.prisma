@@ -1,0 +1,810 @@
+// =====================================================================
+// SIGFCO — Sistema Integrado de Gestão de Frotas e Controles Operacionais
+// Modelo de dados de referência (SRS v1.0 §13)
+//
+// Notas de implementação:
+//  - SQLite não suporta enums Prisma nem Json: estados são strings com
+//    constantes tipadas em src/lib/constantes.ts; campos estruturados
+//    são JSON serializado em String.
+//  - Dinheiro: sempre em unidades menores (centavos) inteiras + moeda
+//    ISO. Conversões guardam taxa, fonte, data e autor (FIN-002/004).
+//  - Timestamps: UTC no servidor; eventos do dispositivo guardam
+//    deviceTime (hora original) + receivedTime (hora de recepção) (NFR-012).
+//  - Isolamento por empresa: companyId em todos os registos operacionais
+//    e filtro obrigatório no servidor (SEC-004).
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------- 6.1 Plataforma ---------------------------
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  legalName    String?
+  nuit         String?
+  address      String?
+  phone        String?
+  email        String?
+  logoUrl      String?
+  currencyBase String   @default("MZN")
+  timezone     String   @default("Africa/Maputo")
+  locale       String   @default("pt-MZ")
+  active       Boolean  @default(true)
+  isDemo       Boolean  @default(false) // DEV-003: empresa de demonstração
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  branches   Branch[]
+  users      User[]
+  drivers    Driver[]
+  vehicles   Vehicle[]
+  gpsDevices GpsDevice[]
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  address   String?
+  lat       Float?
+  lng       Float?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  users   User[]
+
+  @@index([companyId])
+}
+
+// ------------------------- 4. Perfis e acessos ----------------------
+
+// Perfis (role): PLATFORM_ADMIN | COMPANY_ADMIN | FLEET_MANAGER |
+// DISPATCHER | FINANCE | DRIVER | MECHANIC | AUDITOR | BRANCH_MANAGER
+
+model User {
+  id           String    @id @default(cuid())
+  companyId    String?
+  branchId     String?
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         String
+  driverId     String?   // ligação opcional ao perfil de motorista
+  phone        String?
+  active       Boolean   @default(true)
+  isDemo       Boolean   @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  company  Company?  @relation(fields: [companyId], references: [id])
+  branch   Branch?   @relation(fields: [branchId], references: [id])
+  sessions Session[]
+}
+
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  device     String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// ------------------------- 6.2/6.3 Frota ----------------------------
+
+model Driver {
+  id               String    @id @default(cuid())
+  companyId        String
+  code             String    // código interno único por empresa
+  name             String
+  phone            String?
+  emergencyContact String?
+  licenseNumber    String?
+  licenseCategory  String?
+  licenseExpiry    DateTime?
+  licenseCountry   String?
+  status           String    @default("ACTIVE") // ACTIVE | INACTIVE | SUSPENDED | ON_TRIP
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  company    Company @relation(fields: [companyId], references: [id])
+  trips      Trip[]  @relation("TripDriver")
+  secondTrips Trip[] @relation("TripSecondDriver")
+  expenses   Expense[] @relation("ExpenseDriver")
+  fuelLogs   FuelLog[] @relation("FuelLogDriver")
+  incidents  Incident[] @relation("IncidentDriver")
+  advances   Advance[] @relation("AdvanceDriver")
+
+  @@unique([companyId, code])
+  @@index([companyId, status])
+}
+
+model Vehicle {
+  id              String   @id @default(cuid())
+  companyId       String
+  plate           String   // normalizada (sem espaços/traços, maiúsculas)
+  foreignPlate    String?
+  brand           String?
+  model           String?
+  year            Int?
+  vin             String?
+  type            String   @default("TRUCK") // TRUCK | TRUCK_6X4 | TRACTOR | VAN | PICKUP
+  axleConfig      String?
+  cargoCapacityKg Int?
+  tankCapacityL   Float?
+  fuelType        String   @default("DIESEL")
+  odometerKm      Float    @default(0)
+  refConsumption  Float?   // L/100km de referência
+  tareKg          Int?
+  status          String   @default("AVAILABLE") // AVAILABLE | RESERVED | IN_TRANSIT | MAINTENANCE | INACTIVE | BLOCKED
+  stateReason     String?
+  isDemo          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+  trips   Trip[]
+  workorders WorkOrder[]
+  maintenancePlans MaintenancePlan[]
+  fuelLogs FuelLog[]
+  incidents Incident[]
+
+  @@unique([companyId, plate])
+  @@index([companyId, status])
+}
+
+model Trailer {
+  id          String   @id @default(cuid())
+  companyId   String
+  plate       String
+  type        String   @default("TRAILER") // TRAILER | TANKER | DOLLY
+  brand       String?
+  model       String?
+  capacityKg  Int?
+  status          String   @default("AVAILABLE")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  trips Trip[]
+
+  @@unique([companyId, plate])
+  @@index([companyId])
+}
+
+// ------------------------- 7. GPS -----------------------------------
+
+model GpsDevice {
+  id           String    @id @default(cuid())
+  companyId    String
+  serial       String
+  imei         String?
+  vendor       String?   // fornecedor (a homologar — ARC-005)
+  protocol     String?   // protocolo documentado do fornecedor
+  simNumber    String?
+  model        String?
+  status       String    @default("INACTIVE") // OPERATIONAL | NO_NETWORK | NO_POWER | TAMPER_ALERT | OFFLINE | INACTIVE
+  statusDetail String?
+  apiKey       String    @unique // credencial do dispositivo (rotação suportada)
+  vehicleId    String?   // associação actual
+  lastPointAt  DateTime?
+  configJson   String?   // cadência, baterias, thresholds (GPS-010)
+  installedAt  DateTime?
+  installedBy  String?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, serial])
+  @@index([vehicleId])
+}
+
+model DeviceAssignment {
+  id        String    @id @default(cuid())
+  companyId String
+  deviceId  String
+  vehicleId String
+  fromAt    DateTime  @default(now())
+  toAt      DateTime?
+  note      String?
+
+  @@index([deviceId])
+  @@index([vehicleId])
+}
+
+model GpsPoint {
+  id           String   @id @default(cuid())
+  companyId    String
+  deviceId     String
+  vehicleId    String?
+  tripId       String?
+  lat          Float
+  lng          Float
+  speedKmh     Float?
+  heading      Float?
+  accuracyM    Float?
+  gnssTime     DateTime // hora original do dispositivo
+  receivedTime DateTime @default(now()) // hora de recepção no servidor
+  source       String   @default("TRACKER") // TRACKER | MOBILE | SIMULATOR(DEMO)
+  seq          Int      // sequência do dispositivo — deduplicação
+  ignition     Boolean?
+  fixQuality   String?
+  isHistoric   Boolean  @default(false) // ponto recebido em atraso
+  qualityFlags String?  // JSON: LOW_ACCURACY, IMPOSSIBLE_JUMP, IMPLAUSIBLE_SPEED
+
+  @@unique([deviceId, seq])
+  @@index([companyId, gnssTime])
+  @@index([vehicleId, gnssTime])
+  @@index([tripId, gnssTime])
+}
+
+model Geofence {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  type        String   @default("BASE") // BASE | PORT | CUSTOMER | FUEL | TOLL | BORDER | RESTRICTED | REST
+  lat         Float
+  lng         Float
+  radiusM     Float    @default(300)
+  polygonJson String?  // polígono opcional
+  active      Boolean  @default(true)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([companyId])
+}
+
+// ------------------------- 6.4 Viagens ------------------------------
+
+// Estados: DRAFT | PLANNED | AWAITING_CHECKLIST | AUTHORIZED_DEPARTURE |
+// IN_TRANSIT | PAUSED | ARRIVED | AWAITING_RECONCILIATION | CLOSED | CANCELLED
+model Trip {
+  id                String    @id @default(cuid())
+  companyId         String
+  branchId          String?
+  code              String    @unique
+  client            String?
+  origin            String
+  destination       String
+  waypointsJson     String?   // rota planeada: [{nome, lat, lng, tipo}]
+  approvedRouteJson String?   // versão aprovada do percurso (FR-031)
+  cargoDesc         String?
+  cargoRef          String?
+  driverId          String
+  secondDriverId    String?
+  vehicleId         String
+  trailerId         String?
+  plannedStart      DateTime
+  plannedEnd        DateTime?
+  plannedDistanceKm Float?
+  status            String    @default("DRAFT")
+  budgetMinorTotal  Int       @default(0) // consolidação em moeda-base
+  departureAt       DateTime?
+  arrivalAt         DateTime?
+  closedAt          DateTime?
+  cancelReason      String?
+  cancelCostsMinor  Int?
+  startOdometerKm   Float?
+  endOdometerKm     Float?
+  podAttachmentId   String?
+  closeBlockers     String?   // JSON de pendências críticas no fecho
+  isDemo            Boolean   @default(false)
+  notes             String?
+  createdById       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  driver       Driver            @relation("TripDriver", fields: [driverId], references: [id])
+  secondDriver Driver?           @relation("TripSecondDriver", fields: [secondDriverId], references: [id])
+  vehicle      Vehicle           @relation(fields: [vehicleId], references: [id])
+  trailer      Trailer?          @relation(fields: [trailerId], references: [id])
+  events       TripEvent[]
+  checklist    ChecklistRun?
+  budgetLines  TripBudgetLine[]
+  advances     Advance[]
+  expenses     Expense[]
+  fuelLogs     FuelLog[]
+  incidents    Incident[]
+
+  @@index([companyId, status])
+  @@index([vehicleId, status])
+  @@index([driverId, status])
+}
+
+model TripBudgetLine {
+  id         String @id @default(cuid())
+  tripId     String
+  companyId  String
+  category   String // combustivel | portagens | per_diem | alfandega | taxas | manutencao_emergencia | comunicacoes | estacionamento | outros
+  currency   String
+  limitMinor Int
+  note       String?
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tripId])
+}
+
+// Tipos: DEPARTURE | ARRIVAL | CHECKPOINT | BORDER | PAUSE_START | PAUSE_END |
+// DELAY | DEVIATION | DRIVER_CHANGE | VEHICLE_CHANGE | LOAD | UNLOAD | SOS | OTHER
+model TripEvent {
+  id            String   @id @default(cuid())
+  companyId     String
+  tripId        String
+  type          String
+  lat           Float?
+  lng           Float?
+  deviceTime    DateTime // hora original (dispositivo/motorista)
+  receivedTime  DateTime @default(now())
+  authorUserId  String?
+  authorLabel   String?
+  note          String?
+  clientUuid    String   @unique // idempotência offline (OFF-002/003)
+  attachmentId  String?
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tripId, deviceTime])
+}
+
+model ChecklistTemplate {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  active    Boolean  @default(true)
+  // [{key, label, blocking, category}] — FR-043; item "carregador"
+  // é bloqueante e sistémico (não removível) — REQUISITO CRÍTICO
+  itemsJson String
+  createdAt DateTime @default(now())
+}
+
+model ChecklistRun {
+  id            String    @id @default(cuid())
+  companyId     String
+  tripId        String    @unique
+  templateId    String
+  itemsJson     String    // [{key, label, blocking, ok, note}]
+  status        String    @default("PENDING") // PENDING | PASSED | FAILED
+  blockedReason String?
+  completedById String?
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id])
+}
+
+// ------------------------- 6.6 Despesas -----------------------------
+
+// Estados: SUBMITTED | IN_REVIEW | APPROVED | REJECTED | RETURNED |
+// RECONCILED | VOID
+model Expense {
+  id                 String    @id @default(cuid())
+  clientUuid         String    @unique // idempotência (AT-009)
+  companyId          String
+  code               String?   // DESP-AAAA-NNNNN (FR-005)
+  tripId             String
+  driverId           String?
+  authorUserId       String?
+  category           String    // combustivel | portagens | per_diem | alfandega | estacionamento | manutencao_emergencia | pneus | lavagem | comunicacao | alojamento | alimentacao | taxas_locais | outros
+  amountMinor        Int
+  currency           String
+  convertedMinor     Int?      // valor em moeda-base
+  baseCurrency       String?
+  rateApplied        String?   // taxa usada (string decimal)
+  rateSource         String?   // MANUAL | API | TRIP_TABLE
+  rateDate           DateTime?
+  expenseDate        DateTime
+  vendor             String?
+  description        String?
+  paymentMethod      String?
+  odoKm              Float?
+  liters             Float?
+  pricePerLiterMinor Int?
+  fuelType           String?
+  station            String?
+  lat                Float?
+  lng                Float?
+  locSource          String?   // GPS_DEVICE | BROWSER | NONE
+  locPrecisionM      Float?
+  locStatus          String?   // OK | PERMISSION_DENIED | UNAVAILABLE
+  locNote            String?   // motivo quando localização indisponível (FR-052)
+  status             String    @default("SUBMITTED")
+  rejectCategory     String?
+  rejectReason       String?
+  duplicateFlag      String?   // POSSIBLE_DUPLICATE | NONE
+  duplicateOfId      String?
+  duplicateScore     Float?
+  noReceiptReason    String?   // excepção documentada (FR-060)
+  voidReason         String?
+  voidedById         String?
+  voidedAt           DateTime?
+  isDemo             Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  trip        Trip         @relation(fields: [tripId], references: [id])
+  driver      Driver?      @relation("ExpenseDriver", fields: [driverId], references: [id])
+  attachments Attachment[]
+
+  @@index([companyId, status])
+  @@index([tripId])
+  @@index([companyId, expenseDate])
+}
+
+model Attachment {
+  id           String   @id @default(cuid())
+  companyId    String
+  kind         String   @default("RECEIPT") // RECEIPT | DOC | POD | INCIDENT | OTHER
+  expenseId    String?
+  tripId       String?
+  incidentId   String?
+  documentId   String?
+  workOrderId  String?
+  path         String   // caminho privado (db/uploads)
+  originalName String
+  mime         String
+  size         Int
+  hash         String   // SHA-256 — integridade (SEC-007)
+  width        Int?
+  height       Int?
+  capturedAt   DateTime?
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  expense Expense? @relation(fields: [expenseId], references: [id])
+
+  @@index([expenseId])
+}
+
+// ------------------------- 6.7 Adiantamentos ------------------------
+
+model Advance {
+  id             String   @id @default(cuid())
+  companyId      String
+  tripId         String
+  driverId       String
+  amountMinor    Int
+  currency       String
+  convertedMinor Int?
+  method         String?
+  authorizedById String?
+  docRef         String?
+  settledMinor   Int?
+  settledCurrency String?
+  grantedAt      DateTime @default(now())
+  notes          String?
+
+  trip   Trip   @relation(fields: [tripId], references: [id])
+  driver Driver @relation("AdvanceDriver", fields: [driverId], references: [id])
+
+  @@index([tripId])
+}
+
+model PerDiemRule {
+  id          String  @id @default(cuid())
+  companyId   String
+  country     String
+  city        String?
+  category    String?
+  amountMinor Int
+  currency    String
+  active      Boolean @default(true)
+
+  @@index([companyId])
+}
+
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  companyId String?
+  fromCcy   String
+  toCcy     String
+  rate      String   // string decimal — precisão arbitrária
+  source    String   @default("MANUAL") // MANUAL | API | TRIP_TABLE
+  setById   String?
+  note      String?
+  effectiveAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([companyId, fromCcy, toCcy])
+}
+
+// ------------------------- 10. Manutenção ---------------------------
+
+model MaintenancePlan {
+  id           String   @id @default(cuid())
+  companyId    String
+  vehicleId    String
+  serviceType  String   // oleo | filtros | travoes | pneus | suspensao | arrefecimento | transmissao | inspecao
+  intervalKm   Float?
+  intervalDays Int?
+  lastDoneKm   Float?
+  lastDoneAt   DateTime?
+  thresholdKm  Float?   // antecedência do alerta (MNT-002)
+  thresholdDays Int?
+  active       Boolean  @default(true)
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@index([vehicleId])
+}
+
+// Estados: OPEN | IN_PROGRESS | DONE | CANCELLED
+model WorkOrder {
+  id            String    @id @default(cuid())
+  companyId     String
+  code          String    @unique
+  vehicleId     String
+  tripId        String?
+  incidentId    String?
+  type          String    @default("CORRECTIVE") // PREVENTIVE | CORRECTIVE
+  symptom       String
+  diagnosis     String?
+  priority      String    @default("NORMAL") // LOW | NORMAL | HIGH | CRITICAL
+  critical      Boolean   @default(false) // MNT-004: bloqueia despacho
+  blocksVehicle Boolean   @default(true)
+  workshop      String?
+  status        String    @default("OPEN")
+  odometerKm    Float?
+  openedAt      DateTime  @default(now())
+  closedAt      DateTime?
+  releasedById  String?   // prova de libertação
+  releasedAt    DateTime?
+  laborCostMinor Int      @default(0)
+  partsCostMinor Int      @default(0)
+  currency      String    @default("MZN")
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@index([companyId, status])
+  @@index([vehicleId])
+}
+
+model Tire {
+  id              String   @id @default(cuid())
+  companyId       String
+  serial          String
+  brand           String?
+  model           String?
+  size            String?
+  status          String   @default("IN_STOCK") // IN_STOCK | INSTALLED | REPAIR | RETIRED
+  vehicleId       String?
+  position        String?  // ex: E1, E2, DI, DE, T1...
+  installedAt     DateTime?
+  installedOdoKm  Float?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([companyId, serial])
+}
+
+model TireEvent {
+  id        String   @id @default(cuid())
+  companyId String
+  tireId    String
+  type      String   // INSTALL | REMOVE | ROTATE | REPAIR | REPLACE
+  vehicleId String?
+  position  String?
+  odoKm     Float?
+  date      DateTime @default(now())
+  note      String?
+  byUserId  String?
+
+  @@index([tireId])
+}
+
+model FuelLog {
+  id                String   @id @default(cuid())
+  clientUuid        String   @unique
+  companyId         String
+  vehicleId         String
+  tripId            String?
+  driverId          String?
+  liters            Float
+  pricePerLiterMinor Int
+  currency          String
+  totalMinor        Int
+  fuelType          String   @default("DIESEL")
+  station           String?
+  odoKm             Float
+  deviceTime        DateTime
+  receivedTime      DateTime @default(now())
+  attachmentId      String?
+  expenseId         String?
+  flagsJson         String?  // anomalias (FUEL-003)
+  createdById       String?
+  createdAt         DateTime @default(now())
+
+  vehicle Vehicle  @relation(fields: [vehicleId], references: [id])
+  trip    Trip?    @relation(fields: [tripId], references: [id])
+  driver  Driver?  @relation("FuelLogDriver", fields: [driverId], references: [id])
+
+  @@index([vehicleId, odoKm])
+  @@index([companyId, deviceTime])
+}
+
+// ------------------------- 10.4 Documentos --------------------------
+
+model DocumentItem {
+  id            String    @id @default(cuid())
+  companyId     String
+  ownerType     String    // COMPANY | VEHICLE | DRIVER | TRAILER | TRIP
+  vehicleId     String?
+  driverId      String?
+  trailerId     String?
+  tripId        String?
+  type          String    // seguro | inspecao | licenca | autorizacao_transfronteira | carta | tala | aduaneiro | outro
+  number        String?
+  issuerCountry String?
+  issuedAt      DateTime?
+  expiresAt     DateTime?
+  blocking      Boolean   @default(false) // bloqueia partida quando expirado (DOC-002)
+  status        String    @default("VALID") // VALID | EXPIRING | EXPIRED
+  attachmentId  String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([companyId, expiresAt])
+  @@index([vehicleId])
+  @@index([driverId])
+}
+
+// ------------------------- Ocorrências ------------------------------
+
+model Incident {
+  id           String   @id @default(cuid())
+  clientUuid   String   @unique
+  companyId    String
+  tripId       String?
+  vehicleId    String?
+  driverId     String?
+  type         String   // ACIDENTE | AVARIA | RETENCAO | ROUBO | PERDA_CARGA | OUTRO
+  severity     String   @default("MEDIUM") // CRITICAL | HIGH | MEDIUM | LOW
+  description  String
+  lat          Float?
+  lng          Float?
+  deviceTime   DateTime
+  receivedTime DateTime @default(now())
+  status       String   @default("OPEN") // OPEN | IN_REVIEW | RESOLVED
+  resolution   String?
+  authorUserId String?
+  authorLabel  String?
+  createdAt    DateTime @default(now())
+
+  trip    Trip?    @relation(fields: [tripId], references: [id])
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+  driver  Driver?  @relation("IncidentDriver", fields: [driverId], references: [id])
+
+  @@index([tripId])
+}
+
+// ------------------------- 15. Alertas e notificações ---------------
+
+model Alert {
+  id             String    @id @default(cuid())
+  companyId      String
+  severity       String    @default("MEDIUM") // CRITICAL | HIGH | MEDIUM | INFO
+  type           String    // CHARGER_MISSING | DOC_EXPIRED | MAINTENANCE_CRITICAL | GPS_NO_POWER | GPS_STALLED | ROUTE_DEVIATION | LONG_STOP | BUDGET_EXCEEDED | DUPLICATE_EXPENSE | SPEEDING | GEOFENCE | SOS | OTHER
+  title          String
+  message        String
+  refType        String?   // TRIP | VEHICLE | EXPENSE | DEVICE | DOCUMENT ...
+  refId          String?
+  vehicleId      String?
+  tripId         String?
+  status         String    @default("OPEN") // OPEN | ACK | CLOSED
+  ackById        String?
+  ackAt          DateTime?
+  closeReason    String?
+  closedById     String?
+  closedAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([companyId, status, severity])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  companyId String
+  userId    String?
+  severity  String    @default("INFO")
+  title     String
+  body      String
+  refType   String?
+  refId     String?
+  channel   String    @default("IN_APP") // IN_APP | EMAIL | SMS (externos pendentes de fornecedor)
+  deliveryStatus String @default("PENDING")
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+}
+
+// ------------------------- Auditoria --------------------------------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  companyId String?
+  userId    String?
+  userName  String?
+  action    String   // LOGIN | LOGOUT | CREATE | UPDATE | DELETE | APPROVE | REJECT | CLOSE | REOPEN | EXPORT | RATE_CHANGE | ASSIGN | REVOKE | ROTATE_KEY | SIM_CONTROL ...
+  entity    String
+  entityId  String?
+  beforeJson String?
+  afterJson  String?
+  reason    String?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([entity, entityId])
+}
+
+// ------------------------- Sincronização ----------------------------
+
+// Fila/ACK do lado servidor (OFF-004): cada submissão offline é
+// registada com clientUuid; só há ACK durável quando registado.
+model SyncRecord {
+  id           String   @id @default(cuid())
+  clientUuid   String   @unique
+  companyId    String
+  userId       String?
+  deviceId     String?
+  type         String   // EXPENSE | INCIDENT | TRIP_EVENT | FUEL_LOG | CHECKLIST | GPS_MOBILE
+  payloadJson  String
+  status       String   @default("RECEIVED") // RECEIVED | PROCESSED | ERROR
+  attempts     Int      @default(1)
+  error        String?
+  deviceTime   DateTime?
+  receivedTime DateTime @default(now())
+  processedAt  DateTime?
+
+  @@index([companyId, status])
+}
+
+// ------------------------- Parâmetros e numeração -------------------
+
+model Setting {
+  id        String   @id @default(cuid())
+  companyId String
+  key       String
+  valueJson String
+
+  @@unique([companyId, key])
+}
+
+model Counter {
+  id        String @id @default(cuid())
+  companyId String
+  key       String // trip | expense | workorder | incident
+  value     Int    @default(0)
+
+  @@unique([companyId, key])
+}

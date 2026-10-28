@@ -1,0 +1,352 @@
+     1→// =====================================================================
+     2→// SIGFCO — Frota: veículos (FR-010..015), motoristas (FR-020..023),
+     3→// reboques (FR-012), rastreadores (GPS-001..008) e documentos (DOC-001..003)
+     4→// =====================================================================
+     5→'use client'
+     6→
+     7→import * as React from 'react'
+     8→import { useApp } from './root'
+     9→import { api, fmtData, fmtMT } from '@/lib/client/api'
+    10→import { Page, Panel, DataTable, StatusBadge, Campo, EntradaTexto, Selecao, Modal, Button, ErroAlerta, Confirmacao } from './ui-kit'
+    11→import { Badge } from '@/components/ui/badge'
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    13→import { Plus, KeyRound, Link2, FileUp } from 'lucide-react'
+    14→
+    15→type Vehicle = { id: string; plate: string; brand?: string; model?: string; year?: number; vin?: string; type: string; odometerKm: number; tankCapacityL?: number; refConsumption?: number; status: string; stateReason?: string; isDemo?: boolean; device?: { serial: string; status: string; lastPointAt?: string } | null; expiredBlockingDoc?: boolean }
+    16→type Driver = { id: string; code: string; name: string; phone?: string; licenseNumber?: string; licenseCategory?: string; licenseExpiry?: string; status: string; licenseExpired?: boolean | null; eligible?: boolean }
+    17→type Trailer = { id: string; plate: string; type: string; brand?: string; capacityKg?: number; status: string }
+    18→type Device = { id: string; serial: string; imei?: string; vendor?: string; protocol?: string; status: string; vehicleId?: string | null; vehicle?: { plate: string } | null; simNumber?: string; lastPointAt?: string | null }
+    19→type Doc = { id: string; ownerType: string; type: string; number?: string; issuerCountry?: string; expiresAt?: string; blocking: boolean; status: string; vehicleId?: string | null; driverId?: string | null }
+    20→
+    21→const PLATE_LABEL = { TRUCK: 'Camião', TRUCK_6X4: 'Camião 6x4', TRACTOR: 'Tractor', VAN: 'Furgão', PICKUP: 'Pick-up' }
+    22→
+    23→export function FrotaView({ abaInicial = 'veiculos' }: { abaInicial?: string }) {
+    24→  const { sessao } = useApp()
+    25→  const podeGerir = ['COMPANY_ADMIN', 'PLATFORM_ADMIN', 'FLEET_MANAGER', 'BRANCH_MANAGER'].includes(sessao.user.role)
+    26→  return (
+    27→    <Page title="Frota" subtitle="Veículos, motoristas, reboques, rastreadores e documentos — estados calculados a partir de eventos (FR-014)" demo={sessao.company?.isDemo}>
+    28→      <Tabs defaultValue={abaInicial}>
+    29→        <TabsList className="flex-wrap h-auto">
+    30→          <TabsTrigger value="veiculos">Veículos</TabsTrigger>
+    31→          <TabsTrigger value="motoristas">Motoristas</TabsTrigger>
+    32→          <TabsTrigger value="reboques">Reboques</TabsTrigger>
+    33→          <TabsTrigger value="gps">Rastreadores GPS</TabsTrigger>
+    34→          <TabsTrigger value="documentos">Documentos</TabsTrigger>
+    35→        </TabsList>
+    36→        <TabsContent value="veiculos"><Veiculos podeGerir={podeGerir} /></TabsContent>
+    37→        <TabsContent value="motoristas"><Motoristas podeGerir={podeGerir} /></TabsContent>
+    38→        <TabsContent value="reboques"><Reboques podeGerir={podeGerir} /></TabsContent>
+    39→        <TabsContent value="gps"><Dispositivos podeGerir={podeGerir} /></TabsContent>
+    40→        <TabsContent value="documentos"><Documentos podeGerir={podeGerir} /></TabsContent>
+    41→      </Tabs>
+    42→    </Page>
+    43→  )
+    44→}
+    45→
+    46→function Veiculos({ podeGerir }: { podeGerir: boolean }) {
+    47→  const [rows, setRows] = React.useState<Vehicle[]>([])
+    48→  const [erro, setErro] = React.useState<string | null>(null)
+    49→  const [novo, setNovo] = React.useState(false)
+    50→  const [form, setForm] = React.useState<Record<string, string>>({})
+    51→
+    52→  const carregar = React.useCallback(async () => {
+    53→    try { setRows((await api<{ vehicles: Vehicle[] }>('/api/vehicles')).vehicles); setErro(null) }
+    54→    catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao carregar veículos.') }
+    55→  }, [])
+    56→  React.useEffect(() => { carregar() }, [carregar])
+    57→
+    58→  const criar = async () => {
+    59→    try {
+    60→      await api('/api/vehicles', { method: 'POST', body: { ...form, year: form.year ? Number(form.year) : undefined, odometerKm: form.odometerKm ? Number(form.odometerKm) : 0 } })
+    61→      setNovo(false); setForm({}); carregar()
+    62→    } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao criar.') }
+    63→  }
+    64→
+    65→  return (
+    66→    <div className="space-y-4">
+    67→      <ErroAlerta erro={erro} />
+    68→      <Panel title={`Frota de camiões (${rows.length})`}
+    69→        actions={podeGerir && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Novo veículo</Button>}>
+    70→        <DataTable
+    71→          rows={rows} filtro={(v, q) => [v.plate, v.brand, v.model, v.vin].some((s) => s?.toLowerCase().includes(q))}
+    72→          filtroPlaceholder="Matrícula, marca…"
+    73→          columns={[
+    74→            { key: 'plate', header: 'Matrícula', render: (v) => <span className="font-medium">{v.plate}{v.isDemo && <Badge variant="outline" className="ml-1.5 border-amber-500 text-amber-600">DEMO</Badge>}</span> },
+    75→            { key: 'brand', header: 'Marca/Modelo', render: (v) => `${v.brand ?? '—'} ${v.model ?? ''}` },
+    76→            { key: 'type', header: 'Tipo', render: (v) => PLATE_LABEL[v.type as keyof typeof PLATE_LABEL] ?? v.type, hideOnMobile: true },
+    77→            { key: 'odometerKm', header: 'Odómetro', render: (v) => `${Math.round(v.odometerKm).toLocaleString('pt-PT')} km`, hideOnMobile: true },
+    78→            { key: 'device', header: 'Rastreador', render: (v) => v.device ? <Badge variant="outline" className={v.device.status === 'OPERATIONAL' ? 'border-emerald-400 text-emerald-700' : 'border-amber-400 text-amber-700'}>{v.device.serial}</Badge> : <span className="text-red-600 font-medium">Sem rastreador</span> },
+    79→            { key: 'status', header: 'Estado', render: (v) => <div className="space-y-0.5"><StatusBadge estado={v.status} mapa={{}} />{v.stateReason && <div className="text-xs text-muted-foreground">{v.stateReason}</div>}{v.expiredBlockingDoc && <div className="text-xs text-red-600">Documento bloqueante expirado</div>}</div> },
+    80→          ]}
+    81→        />
+    82→      </Panel>
+    83→
+    84→      <Modal open={novo} onOpenChange={setNovo} title="Novo veículo" description="Matrícula normalizada e única na empresa (FR-010)."
+    85→        footer={<><Button variant="outline" onClick={() => setNovo(false)}>Cancelar</Button><Button onClick={criar}>Registar</Button></>}>
+    86→        <div className="grid gap-3 sm:grid-cols-2">
+    87→          <Campo label="Matrícula" required hint="Sem espaços/traços; ex.: AAH123MZ"><EntradaTexto value={form.plate ?? ''} onChange={(e) => setForm({ ...form, plate: e.target.value })} /></Campo>
+    88→          <Campo label="Marca"><EntradaTexto value={form.brand ?? ''} onChange={(e) => setForm({ ...form, brand: e.target.value })} /></Campo>
+    89→          <Campo label="Modelo"><EntradaTexto value={form.model ?? ''} onChange={(e) => setForm({ ...form, model: e.target.value })} /></Campo>
+    90→          <Campo label="Ano"><EntradaTexto type="number" value={form.year ?? ''} onChange={(e) => setForm({ ...form, year: e.target.value })} /></Campo>
+    91→          <Campo label="VIN / Chassis"><EntradaTexto value={form.vin ?? ''} onChange={(e) => setForm({ ...form, vin: e.target.value })} /></Campo>
+    92→          <Campo label="Tipo"><Selecao value={form.type ?? 'TRUCK'} onChange={(v) => setForm({ ...form, type: v })} opcoes={Object.entries(PLATE_LABEL).map(([value, label]) => ({ value, label }))} /></Campo>
+    93→          <Campo label="Capacidade do tanque (L)"><EntradaTexto type="number" value={form.tankCapacityL ?? ''} onChange={(e) => setForm({ ...form, tankCapacityL: e.target.value })} /></Campo>
+    94→          <Campo label="Consumo de referência (L/100km)" hint="Usado na comparação esperado vs real (FUEL-002)"><EntradaTexto type="number" value={form.refConsumption ?? ''} onChange={(e) => setForm({ ...form, refConsumption: e.target.value })} /></Campo>
+    95→          <Campo label="Odómetro actual (km)"><EntradaTexto type="number" value={form.odometerKm ?? ''} onChange={(e) => setForm({ ...form, odometerKm: e.target.value })} /></Campo>
+    96→          <Campo label="Capacidade de carga (kg)"><EntradaTexto type="number" value={form.cargoCapacityKg ?? ''} onChange={(e) => setForm({ ...form, cargoCapacityKg: e.target.value })} /></Campo>
+    97→        </div>
+    98→      </Modal>
+    99→    </div>
+   100→  )
+   101→}
+   102→
+   103→function Motoristas({ podeGerir }: { podeGerir: boolean }) {
+   104→  const [rows, setRows] = React.useState<Driver[]>([])
+   105→  const [erro, setErro] = React.useState<string | null>(null)
+   106→  const [novo, setNovo] = React.useState(false)
+   107→  const [form, setForm] = React.useState<Record<string, string>>({})
+   108→
+   109→  const carregar = React.useCallback(async () => {
+   110→    try { setRows((await api<{ drivers: Driver[] }>('/api/drivers')).drivers); setErro(null) }
+   111→    catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao carregar motoristas.') }
+   112→  }, [])
+   113→  React.useEffect(() => { carregar() }, [carregar])
+   114→
+   115→  const criar = async () => {
+   116→    try { await api('/api/drivers', { method: 'POST', body: form }); setNovo(false); setForm({}); carregar() }
+   117→    catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao criar.') }
+   118→  }
+   119→
+   120→  return (
+   121→    <div className="space-y-4">
+   122→      <ErroAlerta erro={erro} />
+   123→      <Panel title={`Motoristas (${rows.length})`} description="Elegibilidade verificada antes de qualquer atribuição (FR-021)"
+   124→        actions={podeGerir && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Novo motorista</Button>}>
+   125→        <DataTable
+   126→          rows={rows} filtro={(d, q) => [d.name, d.code, d.phone].some((s) => s?.toLowerCase().includes(q))}
+   127→          filtroPlaceholder="Nome, código…"
+   128→          columns={[
+   129→            { key: 'code', header: 'Código', render: (d) => <span className="font-medium">{d.code}</span> },
+   130→            { key: 'name', header: 'Nome' },
+   131→            { key: 'phone', header: 'Contacto', hideOnMobile: true },
+   132→            { key: 'license', header: 'Carta', render: (d) => `${d.licenseCategory ?? '—'} • ${d.licenseNumber ?? '—'}`, hideOnMobile: true },
+   133→            { key: 'validade', header: 'Validade da carta', render: (d) => <span className={d.licenseExpired ? 'text-red-600 font-medium' : ''}>{fmtData(d.licenseExpiry)}{d.licenseExpired ? ' (expirada)' : ''}</span> },
+   134→            { key: 'status', header: 'Estado', render: (d) => <StatusBadge estado={d.status} mapa={{ ACTIVE: 'Activo', INACTIVE: 'Inactivo', SUSPENDED: 'Suspenso', ON_TRIP: 'Em viagem' }} /> },
+   135→            { key: 'elig', header: 'Elegível', render: (d) => d.eligible ? <Badge variant="outline" className="border-emerald-400 text-emerald-700">Sim</Badge> : <Badge variant="outline" className="border-red-400 text-red-700">Não</Badge> },
+   136→          ]}
+   137→        />
+   138→      </Panel>
+   139→
+   140→      <Modal open={novo} onOpenChange={setNovo} title="Novo motorista" description="Contacto de emergência apenas quando autorizado pela política (FR-020)."
+   141→        footer={<><Button variant="outline" onClick={() => setNovo(false)}>Cancelar</Button><Button onClick={criar}>Registar</Button></>}>
+   142→        <div className="grid gap-3 sm:grid-cols-2">
+   143→          <Campo label="Nome completo" required><EntradaTexto value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Campo>
+   144→          <Campo label="Código interno" hint="Gerado automaticamente se vazio"><EntradaTexto value={form.code ?? ''} onChange={(e) => setForm({ ...form, code: e.target.value })} /></Campo>
+   145→          <Campo label="Contacto"><EntradaTexto value={form.phone ?? ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Campo>
+   146→          <Campo label="Contacto de emergência"><EntradaTexto value={form.emergencyContact ?? ''} onChange={(e) => setForm({ ...form, emergencyContact: e.target.value })} /></Campo>
+   147→          <Campo label="Nº da carta"><EntradaTexto value={form.licenseNumber ?? ''} onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })} /></Campo>
+   148→          <Campo label="Categoria"><Selecao value={form.licenseCategory ?? 'C1'} onChange={(v) => setForm({ ...form, licenseCategory: v })} opcoes={[{ value: 'C1', label: 'C1' }, { value: 'C', label: 'C' }, { value: 'C2', label: 'C2' }, { value: 'D', label: 'D' }]} /></Campo>
+   149→          <Campo label="Validade da carta" required><EntradaTexto type="date" value={form.licenseExpiry ?? ''} onChange={(e) => setForm({ ...form, licenseExpiry: e.target.value })} /></Campo>
+   150→          <Campo label="País emissor"><EntradaTexto value={form.licenseCountry ?? 'MZ'} onChange={(e) => setForm({ ...form, licenseCountry: e.target.value })} /></Campo>
+   151→        </div>
+   152→      </Modal>
+   153→    </div>
+   154→  )
+   155→}
+   156→
+   157→function Reboques({ podeGerir }: { podeGerir: boolean }) {
+   158→  const [rows, setRows] = React.useState<Trailer[]>([])
+   159→  const [novo, setNovo] = React.useState(false)
+   160→  const [form, setForm] = React.useState<Record<string, string>>({})
+   161→  const carregar = React.useCallback(async () => { setRows((await api<{ trailers: Trailer[] }>('/api/trailers')).trailers) }, [])
+   162→  React.useEffect(() => { carregar() }, [carregar])
+   163→  const criar = async () => { try { await api('/api/trailers', { method: 'POST', body: { ...form, capacityKg: form.capacityKg ? Number(form.capacityKg) : undefined } }); setNovo(false); setForm({}); carregar() } catch { /* erro tratado pela API */ } }
+   164→
+   165→  return (
+   166→    <Panel title={`Reboques e combinações (${rows.length})`} description="Registados separadamente e associáveis às viagens (FR-012)"
+   167→      actions={podeGerir && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Novo reboque</Button>}>
+   168→      <DataTable rows={rows} columns={[
+   169→        { key: 'plate', header: 'Matrícula', render: (t) => <span className="font-medium">{t.plate}</span> },
+   170→        { key: 'type', header: 'Tipo', render: (t) => ({ TRAILER: 'Atrelado', TANKER: 'Cisterna', DOLLY: 'Dolly' }[t.type] ?? t.type) },
+   171→        { key: 'brand', header: 'Marca', hideOnMobile: true },
+   172→        { key: 'capacityKg', header: 'Capacidade (kg)', render: (t) => t.capacityKg?.toLocaleString('pt-PT') ?? '—', hideOnMobile: true },
+   173→        { key: 'status', header: 'Estado', render: (t) => <StatusBadge estado={t.status} mapa={{ AVAILABLE: 'Disponível', IN_USE: 'Em uso', MAINTENANCE: 'Manutenção', INACTIVE: 'Inactivo' }} /> },
+   174→      ]} />
+   175→      <Modal open={novo} onOpenChange={setNovo} title="Novo reboque"
+   176→        footer={<><Button variant="outline" onClick={() => setNovo(false)}>Cancelar</Button><Button onClick={criar}>Registar</Button></>}>
+   177→        <div className="grid gap-3 sm:grid-cols-2">
+   178→          <Campo label="Matrícula/Identificação" required><EntradaTexto value={form.plate ?? ''} onChange={(e) => setForm({ ...form, plate: e.target.value })} /></Campo>
+   179→          <Campo label="Tipo"><Selecao value={form.type ?? 'TRAILER'} onChange={(v) => setForm({ ...form, type: v })} opcoes={[{ value: 'TRAILER', label: 'Atrelado' }, { value: 'TANKER', label: 'Cisterna' }, { value: 'DOLLY', label: 'Dolly' }]} /></Campo>
+   180→          <Campo label="Marca"><EntradaTexto value={form.brand ?? ''} onChange={(e) => setForm({ ...form, brand: e.target.value })} /></Campo>
+   181→          <Campo label="Capacidade (kg)"><EntradaTexto type="number" value={form.capacityKg ?? ''} onChange={(e) => setForm({ ...form, capacityKg: e.target.value })} /></Campo>
+   182→        </div>
+   183→      </Modal>
+   184→    </Panel>
+   185→  )
+   186→}
+   187→
+   188→function Dispositivos({ podeGerir }: { podeGerir: boolean }) {
+   189→  const { sessao } = useApp()
+   190→  const [rows, setRows] = React.useState<Device[]>([])
+   191→  const [vehicles, setVehicles] = React.useState<Vehicle[]>([])
+   192→  const [erro, setErro] = React.useState<string | null>(null)
+   193→  const [novo, setNovo] = React.useState(false)
+   194→  const [form, setForm] = React.useState<Record<string, string>>({})
+   195→  const [novaChave, setNovaChave] = React.useState<string | null>(null)
+   196→  const [confirmarRotacao, setConfirmarRotacao] = React.useState<Device | null>(null)
+   197→  const isDemo = sessao.company?.isDemo
+   198→
+   199→  const carregar = React.useCallback(async () => {
+   200→    try {
+   201→      const [d, v] = await Promise.all([api<{ devices: Device[] }>('/api/gps/devices'), api<{ vehicles: Vehicle[] }>('/api/vehicles')])
+   202→      setRows(d.devices); setVehicles(v.vehicles); setErro(null)
+   203→    } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao carregar dispositivos.') }
+   204→  }, [])
+   205→  React.useEffect(() => { carregar() }, [carregar])
+   206→
+   207→  const criar = async () => {
+   208→    try { await api('/api/gps/devices', { method: 'POST', body: form }); setNovo(false); setForm({}); carregar() }
+   209→    catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao criar dispositivo.') }
+   210→  }
+   211→
+   212→  const atribuir = async (device: Device, vehicleId: string) => {
+   213→    try { await api('/api/gps/devices', { method: 'PATCH', body: { id: device.id, action: 'assign', vehicleId } }); carregar() }
+   214→    catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao associar.') }
+   215→  }
+   216→
+   217→  const rodarChave = async (device: Device) => {
+   218→    try {
+   219→      const r = await api<{ apiKey: string }>('/api/gps/devices', { method: 'PATCH', body: { id: device.id, action: 'rotate-key' } })
+   220→      setNovaChave(r.apiKey); setConfirmarRotacao(null)
+   221→    } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao rodar chave.') }
+   222→  }
+   223→
+   224→  const copiarIngest = async () => {
+   225→    await navigator.clipboard.writeText(JSON.stringify({ points: [{ deviceSerial: rows[0]?.serial ?? 'TLT-DEMO-001', lat: -19.8436, lng: 34.8389, speedKmh: 62, heading: 270, accuracyM: 8, gnssTime: new Date().toISOString(), seq: 10231, ignition: true, fixQuality: '3D' }] }, null, 2))
+   226→  }
+   227→
+   228→  return (
+   229→    <div className="space-y-4">
+   230→      <ErroAlerta erro={erro} />
+   231→      <Panel title="Integração de telemetria (GPS-008)" description="Camada de adaptadores: o fornecedor real é convertido para o contrato comum sem alterar os módulos de viagem/despesas."
+   232→        actions={isDemo && <Button size="sm" variant="outline" onClick={copiarIngest}><FileUp className="mr-1 h-4 w-4" />Copiar payload de teste</Button>}>
+   233→        <div className="grid gap-3 text-sm sm:grid-cols-3">
+   234→          <div className="rounded-lg border p-3"><b className="block text-xs uppercase text-muted-foreground">Endpoint de ingestão</b><code className="text-xs">POST /api/gps/ingest</code><p className="mt-1 text-xs text-muted-foreground">Autenticação: Bearer apiKey do dispositivo. Lotes store-and-forward com seq deduplicada.</p></div>
+   235→          <div className="rounded-lg border p-3"><b className="block text-xs uppercase text-muted-foreground">Adaptadores</b><code className="text-xs">generic-json</code><p className="mt-1 text-xs text-muted-foreground">Fornecedor real (Teltonika, Queclink…) acrescenta o seu adapter — homologação pendente (ARC-005).</p></div>
+   236→          <div className="rounded-lg border p-3"><b className="block text-xs uppercase text-muted-foreground">Documentação viva</b><code className="text-xs">GET /api/gps/ingest</code><p className="mt-1 text-xs text-muted-foreground">Contrato, exemplo de payload e regras de deduplicação/histórico.</p></div>
+   237→        </div>
+   238→      </Panel>
+   239→
+   240→      <Panel title={`Rastreadores (${rows.length})`} description="Fonte primária de posição — um por camião (GPS-001); chave por dispositivo com rotação (§14.3)"
+   241→        actions={podeGerir && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Novo dispositivo</Button>}>
+   242→        <DataTable rows={rows} columns={[
+   243→          { key: 'serial', header: 'Série/IMEI', render: (d) => <div><span className="font-medium">{d.serial}</span><div className="text-xs text-muted-foreground">{d.imei}</div></div> },
+   244→          { key: 'vendor', header: 'Fornecedor', render: (d) => d.vendor ?? '—', hideOnMobile: true },
+   245→          { key: 'vehicle', header: 'Veículo', render: (d) => d.vehicle ? <span className="font-medium">{d.vehicle.plate}</span> : <span className="text-muted-foreground">Sem associação</span> },
+   246→          { key: 'sim', header: 'SIM', render: (d) => d.simNumber ?? '—', hideOnMobile: true },
+   247→          { key: 'last', header: 'Último ponto', render: (d) => fmtData(d.lastPointAt, true), hideOnMobile: true },
+   248→          { key: 'status', header: 'Estado', render: (d) => <StatusBadge estado={d.status} mapa={{}} /> },
+   249→          { key: 'actions', header: '', render: (d) => podeGerir && (
+   250→            <div className="flex gap-1.5">
+   251→              <Selecao value={d.vehicleId ?? ''} onChange={(v) => v && atribuir(d, v)} opcoes={[{ value: '', label: 'Associar a…' }, ...vehicles.map((v) => ({ value: v.id, label: v.plate }))]} />
+   252→              <Button size="sm" variant="outline" title="Rodar chave de API" onClick={() => setConfirmarRotacao(d)}><KeyRound className="h-3.5 w-3.5" /></Button>
+   253→            </div>
+   254→          ) },
+   255→        ]} />
+   256→      </Panel>
+   257→
+   258→      <Modal open={novo} onOpenChange={setNovo} title="Novo rastreador GPS" description="Registe a instalação (local, instalador) para validação por técnico (GPS-006)."
+   259→        footer={<><Button variant="outline" onClick={() => setNovo(false)}>Cancelar</Button><Button onClick={criar}>Registar</Button></>}>
+   260→        <div className="grid gap-3 sm:grid-cols-2">
+   261→          <Campo label="Nº de série" required><EntradaTexto value={form.serial ?? ''} onChange={(e) => setForm({ ...form, serial: e.target.value })} /></Campo>
+   262→          <Campo label="IMEI"><EntradaTexto value={form.imei ?? ''} onChange={(e) => setForm({ ...form, imei: e.target.value })} /></Campo>
+   263→          <Campo label="Fornecedor" hint="A homologar (ARC-005)"><EntradaTexto value={form.vendor ?? ''} onChange={(e) => setForm({ ...form, vendor: e.target.value })} /></Campo>
+   264→          <Campo label="Nº SIM / roaming"><EntradaTexto value={form.simNumber ?? ''} onChange={(e) => setForm({ ...form, simNumber: e.target.value })} /></Campo>
+   265→        </div>
+   266→      </Modal>
+   267→
+   268→      <Confirmacao open={!!confirmarRotacao} onOpenChange={(v) => !v && setConfirmarRotacao(null)}
+   269→        titulo={`Rodar chave de API — ${confirmarRotacao?.serial}`} perigo exigirTexto="RODAR"
+   270→        mensagem="A chave actual deixa de ser aceita imediatamente. Actualize a configuração do equipamento com a nova chave. Operação auditada (§4.1)."
+   271→        onConfirm={() => confirmarRotacao && rodarChave(confirmarRotacao)} />
+   272→
+   273→      <Modal open={!!novaChave} onOpenChange={(v) => !v && setNovaChave(null)} title="Nova chave de API gerada"
+   274→        description="Guarde com segurança — não será mostrada novamente (DEV-007: sem segredos no cliente)."
+   275→        footer={<Button onClick={() => setNovaChave(null)}>Entendido</Button>}>
+   276→        <code className="block break-all rounded bg-muted p-3 text-sm">{novaChave}</code>
+   277→      </Modal>
+   278→    </div>
+   279→  )
+   280→}
+   281→
+   282→function Documentos({ podeGerir }: { podeGerir: boolean }) {
+   283→  const [rows, setRows] = React.useState<Doc[]>([])
+   284→  const [vehicles, setVehicles] = React.useState<Vehicle[]>([])
+   285→  const [drivers, setDrivers] = React.useState<Driver[]>([])
+   286→  const [erro, setErro] = React.useState<string | null>(null)
+   287→  const [novo, setNovo] = React.useState(false)
+   288→  const [form, setForm] = React.useState<Record<string, string>>({})
+   289→  const [filtro, setFiltro] = React.useState('')
+   290→
+   291→  const carregar = React.useCallback(async () => {
+   292→    try {
+   293→      const [d, v, m] = await Promise.all([api<{ documents: Doc[] }>('/api/documents'), api<{ vehicles: Vehicle[] }>('/api/vehicles'), api<{ drivers: Driver[] }>('/api/drivers')])
+   294→      setRows(d.documents); setVehicles(v.vehicles); setDrivers(m.drivers); setErro(null)
+   295→    } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao carregar documentos.') }
+   296→  }, [])
+   297→  React.useEffect(() => { carregar() }, [carregar])
+   298→
+   299→  const criar = async () => {
+   300→    try {
+   301→      await api('/api/documents', { method: 'POST', body: { ...form, ownerType: form.ownerType || 'VEHICLE', vehicleId: form.ownerType === 'VEHICLE' ? form.ownerId : undefined, driverId: form.ownerType === 'DRIVER' ? form.ownerId : undefined, blocking: form.blocking === '1' } })
+   302→      setNovo(false); setForm({}); carregar()
+   303→    } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao criar documento.') }
+   304→  }
+   305→
+   306→  const TIPOS = [
+   307→    { value: 'seguro', label: 'Seguro' }, { value: 'inspecao', label: 'Inspecção' },
+   308→    { value: 'licenca', label: 'Licença' }, { value: 'autorizacao_transfronteira', label: 'Autorização transfronteiriça' },
+   309→    { value: 'carta_conducao', label: 'Carta de condução' }, { value: 'aduaneiro', label: 'Documento aduaneiro' },
+   310→    { value: 'certificado_carga', label: 'Certificado de carga' }, { value: 'outro', label: 'Outro' },
+   311→  ]
+   312→
+   313→  return (
+   314→    <div className="space-y-4">
+   315→      <ErroAlerta erro={erro} />
+   316→      <div className="flex flex-wrap gap-2">
+   317→        {[{ k: '', l: 'Todos' }, { k: 'expiring', l: 'A expirar (30 dias)' }, { k: 'expired', l: 'Expirados' }].map((f) => (
+   318→          <Button key={f.k} size="sm" variant={filtro === f.k ? 'default' : 'outline'} onClick={() => { setFiltro(f.k); api<{ documents: Doc[] }>(`/api/documents${f.k ? `?filter=${f.k}` : ''}`).then((r) => setRows(r.documents)) }}>{f.l}</Button>
+   319→        ))}
+   320→        {podeGerir && <Button size="sm" className="ml-auto" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Novo documento</Button>}
+   321→      </div>
+   322→      <Panel title={`Documentos (${rows.length})`} description="Vencimentos com alerta; bloqueantes expirados impedem a partida (DOC-002, AT-017)">
+   323→        <DataTable rows={rows} columns={[
+   324→          { key: 'type', header: 'Tipo', render: (d) => <span className="font-medium">{TIPOS.find((t) => t.value === d.type)?.label ?? d.type}</span> },
+   325→          { key: 'number', header: 'Número', hideOnMobile: true },
+   326→          { key: 'owner', header: 'Associado a', render: (d) => d.ownerType === 'VEHICLE' ? (vehicles.find((v) => v.id === d.vehicleId)?.plate ?? '—') : d.ownerType === 'DRIVER' ? (drivers.find((x) => x.id === d.driverId)?.name ?? '—') : d.ownerType },
+   327→          { key: 'expiresAt', header: 'Validade', render: (d) => <span className={d.status === 'EXPIRED' ? 'text-red-600 font-medium' : d.status === 'EXPIRING' ? 'text-amber-600' : ''}>{fmtData(d.expiresAt)}</span> },
+   328→          { key: 'blocking', header: 'Bloqueante', render: (d) => d.blocking ? <Badge variant="outline" className="border-red-300 text-red-700">Sim — bloqueia partida</Badge> : 'Não' },
+   329→          { key: 'status', header: 'Estado', render: (d) => <StatusBadge estado={d.status} mapa={{ VALID: 'Válido', EXPIRING: 'A expirar', EXPIRED: 'Expirado' }} /> },
+   330→          { key: 'country', header: 'País', render: (d) => d.issuerCountry ?? '—', hideOnMobile: true },
+   331→        ]} />
+   332→      </Panel>
+   333→
+   334→      <Modal open={novo} onOpenChange={setNovo} title="Novo documento" description="Lista configurável por rota/país — a completude legal exige validação de especialista local (DOC-003)."
+   335→        footer={<><Button variant="outline" onClick={() => setNovo(false)}>Cancelar</Button><Button onClick={criar}>Registar</Button></>}>
+   336→        <div className="grid gap-3 sm:grid-cols-2">
+   337→          <Campo label="Associado a" required><Selecao value={form.ownerType ?? 'VEHICLE'} onChange={(v) => setForm({ ...form, ownerType: v })} opcoes={[{ value: 'VEHICLE', label: 'Veículo' }, { value: 'DRIVER', label: 'Motorista' }]} /></Campo>
+   338→          <Campo label={form.ownerType === 'DRIVER' ? 'Motorista' : 'Veículo'} required>
+   339→            <Selecao value={form.ownerId ?? ''} onChange={(v) => setForm({ ...form, ownerId: v })} opcoes={[{ value: '', label: 'Seleccionar…' }, ...(form.ownerType === 'DRIVER' ? drivers.map((d) => ({ value: d.id, label: d.name })) : vehicles.map((v) => ({ value: v.id, label: v.plate })))]} />
+   340→          </Campo>
+   341→          <Campo label="Tipo" required><Selecao value={form.type ?? 'seguro'} onChange={(v) => setForm({ ...form, type: v })} opcoes={TIPOS} /></Campo>
+   342→          <Campo label="Número"><EntradaTexto value={form.number ?? ''} onChange={(e) => setForm({ ...form, number: e.target.value })} /></Campo>
+   343→          <Campo label="Emissão"><EntradaTexto type="date" value={form.issuedAt ?? ''} onChange={(e) => setForm({ ...form, issuedAt: e.target.value })} /></Campo>
+   344→          <Campo label="Validade" required><EntradaTexto type="date" value={form.expiresAt ?? ''} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} /></Campo>
+   345→          <Campo label="País emissor"><EntradaTexto value={form.issuerCountry ?? 'MZ'} onChange={(e) => setForm({ ...form, issuerCountry: e.target.value })} /></Campo>
+   346→          <Campo label="Bloqueante" hint="Expirado → impede autorização de partida (DOC-002)"><Selecao value={form.blocking ?? '0'} onChange={(v) => setForm({ ...form, blocking: v })} opcoes={[{ value: '0', label: 'Não' }, { value: '1', label: 'Sim' }]} /></Campo>
+   347→        </div>
+   348→      </Modal>
+   349→    </div>
+   350→  )
+   351→}
+   352→

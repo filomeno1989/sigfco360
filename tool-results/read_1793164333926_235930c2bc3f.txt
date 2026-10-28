@@ -1,0 +1,811 @@
+     1→     1→// =====================================================================
+     2→     2→// SIGFCO — Sistema Integrado de Gestão de Frotas e Controles Operacionais
+     3→     3→// Modelo de dados de referência (SRS v1.0 §13)
+     4→     4→//
+     5→     5→// Notas de implementação:
+     6→     6→//  - SQLite não suporta enums Prisma nem Json: estados são strings com
+     7→     7→//    constantes tipadas em src/lib/constantes.ts; campos estruturados
+     8→     8→//    são JSON serializado em String.
+     9→     9→//  - Dinheiro: sempre em unidades menores (centavos) inteiras + moeda
+    10→    10→//    ISO. Conversões guardam taxa, fonte, data e autor (FIN-002/004).
+    11→    11→//  - Timestamps: UTC no servidor; eventos do dispositivo guardam
+    12→    12→//    deviceTime (hora original) + receivedTime (hora de recepção) (NFR-012).
+    13→    13→//  - Isolamento por empresa: companyId em todos os registos operacionais
+    14→    14→//    e filtro obrigatório no servidor (SEC-004).
+    15→    15→// =====================================================================
+    16→    16→
+    17→    17→generator client {
+    18→    18→  provider = "prisma-client-js"
+    19→    19→}
+    20→    20→
+    21→    21→datasource db {
+    22→    22→  provider = "sqlite"
+    23→    23→  url      = env("DATABASE_URL")
+    24→    24→}
+    25→    25→
+    26→    26→// ------------------------- 6.1 Plataforma ---------------------------
+    27→    27→
+    28→    28→model Company {
+    29→    29→  id           String   @id @default(cuid())
+    30→    30→  name         String
+    31→    31→  legalName    String?
+    32→    32→  nuit         String?
+    33→    33→  address      String?
+    34→    34→  phone        String?
+    35→    35→  email        String?
+    36→    36→  logoUrl      String?
+    37→    37→  currencyBase String   @default("MZN")
+    38→    38→  timezone     String   @default("Africa/Maputo")
+    39→    39→  locale       String   @default("pt-MZ")
+    40→    40→  active       Boolean  @default(true)
+    41→    41→  isDemo       Boolean  @default(false) // DEV-003: empresa de demonstração
+    42→    42→  createdAt    DateTime @default(now())
+    43→    43→  updatedAt    DateTime @updatedAt
+    44→    44→
+    45→    45→  branches   Branch[]
+    46→    46→  users      User[]
+    47→    47→  drivers    Driver[]
+    48→    48→  vehicles   Vehicle[]
+    49→    49→  gpsDevices GpsDevice[]
+    50→    50→}
+    51→    51→
+    52→    52→model Branch {
+    53→    53→  id        String   @id @default(cuid())
+    54→    54→  companyId String
+    55→    55→  name      String
+    56→    56→  address   String?
+    57→    57→  lat       Float?
+    58→    58→  lng       Float?
+    59→    59→  active    Boolean  @default(true)
+    60→    60→  createdAt DateTime @default(now())
+    61→    61→
+    62→    62→  company Company @relation(fields: [companyId], references: [id])
+    63→    63→  users   User[]
+    64→    64→
+    65→    65→  @@index([companyId])
+    66→    66→}
+    67→    67→
+    68→    68→// ------------------------- 4. Perfis e acessos ----------------------
+    69→    69→
+    70→    70→// Perfis (role): PLATFORM_ADMIN | COMPANY_ADMIN | FLEET_MANAGER |
+    71→    71→// DISPATCHER | FINANCE | DRIVER | MECHANIC | AUDITOR | BRANCH_MANAGER
+    72→    72→
+    73→    73→model User {
+    74→    74→  id           String    @id @default(cuid())
+    75→    75→  companyId    String?
+    76→    76→  branchId     String?
+    77→    77→  name         String
+    78→    78→  email        String    @unique
+    79→    79→  passwordHash String
+    80→    80→  role         String
+    81→    81→  driverId     String?   // ligação opcional ao perfil de motorista
+    82→    82→  phone        String?
+    83→    83→  active       Boolean   @default(true)
+    84→    84→  isDemo       Boolean   @default(false)
+    85→    85→  lastLoginAt  DateTime?
+    86→    86→  createdAt    DateTime  @default(now())
+    87→    87→  updatedAt    DateTime  @updatedAt
+    88→    88→
+    89→    89→  company  Company?  @relation(fields: [companyId], references: [id])
+    90→    90→  branch   Branch?   @relation(fields: [branchId], references: [id])
+    91→    91→  sessions Session[]
+    92→    92→}
+    93→    93→
+    94→    94→model Session {
+    95→    95→  id         String    @id @default(cuid())
+    96→    96→  userId     String
+    97→    97→  tokenHash  String    @unique
+    98→    98→  device     String?
+    99→    99→  ip         String?
+   100→   100→  createdAt  DateTime  @default(now())
+   101→   101→  lastSeenAt DateTime  @default(now())
+   102→   102→  expiresAt  DateTime
+   103→   103→  revokedAt  DateTime?
+   104→   104→
+   105→   105→  user User @relation(fields: [userId], references: [id])
+   106→   106→
+   107→   107→  @@index([userId])
+   108→   108→}
+   109→   109→
+   110→   110→// ------------------------- 6.2/6.3 Frota ----------------------------
+   111→   111→
+   112→   112→model Driver {
+   113→   113→  id               String    @id @default(cuid())
+   114→   114→  companyId        String
+   115→   115→  code             String    // código interno único por empresa
+   116→   116→  name             String
+   117→   117→  phone            String?
+   118→   118→  emergencyContact String?
+   119→   119→  licenseNumber    String?
+   120→   120→  licenseCategory  String?
+   121→   121→  licenseExpiry    DateTime?
+   122→   122→  licenseCountry   String?
+   123→   123→  status           String    @default("ACTIVE") // ACTIVE | INACTIVE | SUSPENDED | ON_TRIP
+   124→   124→  notes            String?
+   125→   125→  createdAt        DateTime  @default(now())
+   126→   126→  updatedAt        DateTime  @updatedAt
+   127→   127→
+   128→   128→  company    Company @relation(fields: [companyId], references: [id])
+   129→   129→  trips      Trip[]  @relation("TripDriver")
+   130→   130→  secondTrips Trip[] @relation("TripSecondDriver")
+   131→   131→  expenses   Expense[] @relation("ExpenseDriver")
+   132→   132→  fuelLogs   FuelLog[] @relation("FuelLogDriver")
+   133→   133→  incidents  Incident[] @relation("IncidentDriver")
+   134→   134→  advances   Advance[] @relation("AdvanceDriver")
+   135→   135→
+   136→   136→  @@unique([companyId, code])
+   137→   137→  @@index([companyId, status])
+   138→   138→}
+   139→   139→
+   140→   140→model Vehicle {
+   141→   141→  id              String   @id @default(cuid())
+   142→   142→  companyId       String
+   143→   143→  plate           String   // normalizada (sem espaços/traços, maiúsculas)
+   144→   144→  foreignPlate    String?
+   145→   145→  brand           String?
+   146→   146→  model           String?
+   147→   147→  year            Int?
+   148→   148→  vin             String?
+   149→   149→  type            String   @default("TRUCK") // TRUCK | TRUCK_6X4 | TRACTOR | VAN | PICKUP
+   150→   150→  axleConfig      String?
+   151→   151→  cargoCapacityKg Int?
+   152→   152→  tankCapacityL   Float?
+   153→   153→  fuelType        String   @default("DIESEL")
+   154→   154→  odometerKm      Float    @default(0)
+   155→   155→  refConsumption  Float?   // L/100km de referência
+   156→   156→  tareKg          Int?
+   157→   157→  status          String   @default("AVAILABLE") // AVAILABLE | RESERVED | IN_TRANSIT | MAINTENANCE | INACTIVE | BLOCKED
+   158→   158→  stateReason     String?
+   159→   159→  isDemo          Boolean  @default(false)
+   160→   160→  createdAt       DateTime @default(now())
+   161→   161→  updatedAt       DateTime @updatedAt
+   162→   162→
+   163→   163→  company Company @relation(fields: [companyId], references: [id])
+   164→   164→  trips   Trip[]
+   165→   165→  workorders WorkOrder[]
+   166→   166→  maintenancePlans MaintenancePlan[]
+   167→   167→  fuelLogs FuelLog[]
+   168→   168→  incidents Incident[]
+   169→   169→
+   170→   170→  @@unique([companyId, plate])
+   171→   171→  @@index([companyId, status])
+   172→   172→}
+   173→   173→
+   174→   174→model Trailer {
+   175→   175→  id          String   @id @default(cuid())
+   176→   176→  companyId   String
+   177→   177→  plate       String
+   178→   178→  type        String   @default("TRAILER") // TRAILER | TANKER | DOLLY
+   179→   179→  brand       String?
+   180→   180→  model       String?
+   181→   181→  capacityKg  Int?
+   182→   182→  status          String   @default("AVAILABLE")
+   183→   183→  notes           String?
+   184→   184→  createdAt       DateTime @default(now())
+   185→   185→  updatedAt       DateTime @updatedAt
+   186→   186→
+   187→   187→  trips Trip[]
+   188→   188→
+   189→   189→  @@unique([companyId, plate])
+   190→   190→  @@index([companyId])
+   191→   191→}
+   192→   192→
+   193→   193→// ------------------------- 7. GPS -----------------------------------
+   194→   194→
+   195→   195→model GpsDevice {
+   196→   196→  id           String    @id @default(cuid())
+   197→   197→  companyId    String
+   198→   198→  serial       String
+   199→   199→  imei         String?
+   200→   200→  vendor       String?   // fornecedor (a homologar — ARC-005)
+   201→   201→  protocol     String?   // protocolo documentado do fornecedor
+   202→   202→  simNumber    String?
+   203→   203→  model        String?
+   204→   204→  status       String    @default("INACTIVE") // OPERATIONAL | NO_NETWORK | NO_POWER | TAMPER_ALERT | OFFLINE | INACTIVE
+   205→   205→  statusDetail String?
+   206→   206→  apiKey       String    @unique // credencial do dispositivo (rotação suportada)
+   207→   207→  vehicleId    String?   // associação actual
+   208→   208→  lastPointAt  DateTime?
+   209→   209→  configJson   String?   // cadência, baterias, thresholds (GPS-010)
+   210→   210→  installedAt  DateTime?
+   211→   211→  installedBy  String?
+   212→   212→  notes        String?
+   213→   213→  createdAt    DateTime  @default(now())
+   214→   214→  updatedAt    DateTime  @updatedAt
+   215→   215→
+   216→   216→  company Company @relation(fields: [companyId], references: [id])
+   217→   217→
+   218→   218→  @@unique([companyId, serial])
+   219→   219→  @@index([vehicleId])
+   220→   220→}
+   221→   221→
+   222→   222→model DeviceAssignment {
+   223→   223→  id        String    @id @default(cuid())
+   224→   224→  companyId String
+   225→   225→  deviceId  String
+   226→   226→  vehicleId String
+   227→   227→  fromAt    DateTime  @default(now())
+   228→   228→  toAt      DateTime?
+   229→   229→  note      String?
+   230→   230→
+   231→   231→  @@index([deviceId])
+   232→   232→  @@index([vehicleId])
+   233→   233→}
+   234→   234→
+   235→   235→model GpsPoint {
+   236→   236→  id           String   @id @default(cuid())
+   237→   237→  companyId    String
+   238→   238→  deviceId     String
+   239→   239→  vehicleId    String?
+   240→   240→  tripId       String?
+   241→   241→  lat          Float
+   242→   242→  lng          Float
+   243→   243→  speedKmh     Float?
+   244→   244→  heading      Float?
+   245→   245→  accuracyM    Float?
+   246→   246→  gnssTime     DateTime // hora original do dispositivo
+   247→   247→  receivedTime DateTime @default(now()) // hora de recepção no servidor
+   248→   248→  source       String   @default("TRACKER") // TRACKER | MOBILE | SIMULATOR(DEMO)
+   249→   249→  seq          Int      // sequência do dispositivo — deduplicação
+   250→   250→  ignition     Boolean?
+   251→   251→  fixQuality   String?
+   252→   252→  isHistoric   Boolean  @default(false) // ponto recebido em atraso
+   253→   253→  qualityFlags String?  // JSON: LOW_ACCURACY, IMPOSSIBLE_JUMP, IMPLAUSIBLE_SPEED
+   254→   254→
+   255→   255→  @@unique([deviceId, seq])
+   256→   256→  @@index([companyId, gnssTime])
+   257→   257→  @@index([vehicleId, gnssTime])
+   258→   258→  @@index([tripId, gnssTime])
+   259→   259→}
+   260→   260→
+   261→   261→model Geofence {
+   262→   262→  id          String   @id @default(cuid())
+   263→   263→  companyId   String
+   264→   264→  name        String
+   265→   265→  type        String   @default("BASE") // BASE | PORT | CUSTOMER | FUEL | TOLL | BORDER | RESTRICTED | REST
+   266→   266→  lat         Float
+   267→   267→  lng         Float
+   268→   268→  radiusM     Float    @default(300)
+   269→   269→  polygonJson String?  // polígono opcional
+   270→   270→  active      Boolean  @default(true)
+   271→   271→  notes       String?
+   272→   272→  createdAt   DateTime @default(now())
+   273→   273→
+   274→   274→  @@index([companyId])
+   275→   275→}
+   276→   276→
+   277→   277→// ------------------------- 6.4 Viagens ------------------------------
+   278→   278→
+   279→   279→// Estados: DRAFT | PLANNED | AWAITING_CHECKLIST | AUTHORIZED_DEPARTURE |
+   280→   280→// IN_TRANSIT | PAUSED | ARRIVED | AWAITING_RECONCILIATION | CLOSED | CANCELLED
+   281→   281→model Trip {
+   282→   282→  id                String    @id @default(cuid())
+   283→   283→  companyId         String
+   284→   284→  branchId          String?
+   285→   285→  code              String    @unique
+   286→   286→  client            String?
+   287→   287→  origin            String
+   288→   288→  destination       String
+   289→   289→  waypointsJson     String?   // rota planeada: [{nome, lat, lng, tipo}]
+   290→   290→  approvedRouteJson String?   // versão aprovada do percurso (FR-031)
+   291→   291→  cargoDesc         String?
+   292→   292→  cargoRef          String?
+   293→   293→  driverId          String
+   294→   294→  secondDriverId    String?
+   295→   295→  vehicleId         String
+   296→   296→  trailerId         String?
+   297→   297→  plannedStart      DateTime
+   298→   298→  plannedEnd        DateTime?
+   299→   299→  plannedDistanceKm Float?
+   300→   300→  status            String    @default("DRAFT")
+   301→   301→  budgetMinorTotal  Int       @default(0) // consolidação em moeda-base
+   302→   302→  departureAt       DateTime?
+   303→   303→  arrivalAt         DateTime?
+   304→   304→  closedAt          DateTime?
+   305→   305→  cancelReason      String?
+   306→   306→  cancelCostsMinor  Int?
+   307→   307→  startOdometerKm   Float?
+   308→   308→  endOdometerKm     Float?
+   309→   309→  podAttachmentId   String?
+   310→   310→  closeBlockers     String?   // JSON de pendências críticas no fecho
+   311→   311→  isDemo            Boolean   @default(false)
+   312→   312→  notes             String?
+   313→   313→  createdById       String?
+   314→   314→  createdAt         DateTime  @default(now())
+   315→   315→  updatedAt         DateTime  @updatedAt
+   316→   316→
+   317→   317→  driver       Driver            @relation("TripDriver", fields: [driverId], references: [id])
+   318→   318→  secondDriver Driver?           @relation("TripSecondDriver", fields: [secondDriverId], references: [id])
+   319→   319→  vehicle      Vehicle           @relation(fields: [vehicleId], references: [id])
+   320→   320→  trailer      Trailer?          @relation(fields: [trailerId], references: [id])
+   321→   321→  events       TripEvent[]
+   322→   322→  checklist    ChecklistRun?
+   323→   323→  budgetLines  TripBudgetLine[]
+   324→   324→  advances     Advance[]
+   325→   325→  expenses     Expense[]
+   326→   326→  fuelLogs     FuelLog[]
+   327→   327→  incidents    Incident[]
+   328→   328→
+   329→   329→  @@index([companyId, status])
+   330→   330→  @@index([vehicleId, status])
+   331→   331→  @@index([driverId, status])
+   332→   332→}
+   333→   333→
+   334→   334→model TripBudgetLine {
+   335→   335→  id         String @id @default(cuid())
+   336→   336→  tripId     String
+   337→   337→  companyId  String
+   338→   338→  category   String // combustivel | portagens | per_diem | alfandega | taxas | manutencao_emergencia | comunicacoes | estacionamento | outros
+   339→   339→  currency   String
+   340→   340→  limitMinor Int
+   341→   341→  note       String?
+   342→   342→
+   343→   343→  trip Trip @relation(fields: [tripId], references: [id])
+   344→   344→
+   345→   345→  @@index([tripId])
+   346→   346→}
+   347→   347→
+   348→   348→// Tipos: DEPARTURE | ARRIVAL | CHECKPOINT | BORDER | PAUSE_START | PAUSE_END |
+   349→   349→// DELAY | DEVIATION | DRIVER_CHANGE | VEHICLE_CHANGE | LOAD | UNLOAD | SOS | OTHER
+   350→   350→model TripEvent {
+   351→   351→  id            String   @id @default(cuid())
+   352→   352→  companyId     String
+   353→   353→  tripId        String
+   354→   354→  type          String
+   355→   355→  lat           Float?
+   356→   356→  lng           Float?
+   357→   357→  deviceTime    DateTime // hora original (dispositivo/motorista)
+   358→   358→  receivedTime  DateTime @default(now())
+   359→   359→  authorUserId  String?
+   360→   360→  authorLabel   String?
+   361→   361→  note          String?
+   362→   362→  clientUuid    String   @unique // idempotência offline (OFF-002/003)
+   363→   363→  attachmentId  String?
+   364→   364→
+   365→   365→  trip Trip @relation(fields: [tripId], references: [id])
+   366→   366→
+   367→   367→  @@index([tripId, deviceTime])
+   368→   368→}
+   369→   369→
+   370→   370→model ChecklistTemplate {
+   371→   371→  id        String   @id @default(cuid())
+   372→   372→  companyId String
+   373→   373→  name      String
+   374→   374→  active    Boolean  @default(true)
+   375→   375→  // [{key, label, blocking, category}] — FR-043; item "carregador"
+   376→   376→  // é bloqueante e sistémico (não removível) — REQUISITO CRÍTICO
+   377→   377→  itemsJson String
+   378→   378→  createdAt DateTime @default(now())
+   379→   379→}
+   380→   380→
+   381→   381→model ChecklistRun {
+   382→   382→  id            String    @id @default(cuid())
+   383→   383→  companyId     String
+   384→   384→  tripId        String    @unique
+   385→   385→  templateId    String
+   386→   386→  itemsJson     String    // [{key, label, blocking, ok, note}]
+   387→   387→  status        String    @default("PENDING") // PENDING | PASSED | FAILED
+   388→   388→  blockedReason String?
+   389→   389→  completedById String?
+   390→   390→  completedAt   DateTime?
+   391→   391→  createdAt     DateTime  @default(now())
+   392→   392→
+   393→   393→  trip Trip @relation(fields: [tripId], references: [id])
+   394→   394→}
+   395→   395→
+   396→   396→// ------------------------- 6.6 Despesas -----------------------------
+   397→   397→
+   398→   398→// Estados: SUBMITTED | IN_REVIEW | APPROVED | REJECTED | RETURNED |
+   399→   399→// RECONCILED | VOID
+   400→   400→model Expense {
+   401→   401→  id                 String    @id @default(cuid())
+   402→   402→  clientUuid         String    @unique // idempotência (AT-009)
+   403→   403→  companyId          String
+   404→   404→  code               String?   // DESP-AAAA-NNNNN (FR-005)
+   405→   405→  tripId             String
+   406→   406→  driverId           String?
+   407→   407→  authorUserId       String?
+   408→   408→  category           String    // combustivel | portagens | per_diem | alfandega | estacionamento | manutencao_emergencia | pneus | lavagem | comunicacao | alojamento | alimentacao | taxas_locais | outros
+   409→   409→  amountMinor        Int
+   410→   410→  currency           String
+   411→   411→  convertedMinor     Int?      // valor em moeda-base
+   412→   412→  baseCurrency       String?
+   413→   413→  rateApplied        String?   // taxa usada (string decimal)
+   414→   414→  rateSource         String?   // MANUAL | API | TRIP_TABLE
+   415→   415→  rateDate           DateTime?
+   416→   416→  expenseDate        DateTime
+   417→   417→  vendor             String?
+   418→   418→  description        String?
+   419→   419→  paymentMethod      String?
+   420→   420→  odoKm              Float?
+   421→   421→  liters             Float?
+   422→   422→  pricePerLiterMinor Int?
+   423→   423→  fuelType           String?
+   424→   424→  station            String?
+   425→   425→  lat                Float?
+   426→   426→  lng                Float?
+   427→   427→  locSource          String?   // GPS_DEVICE | BROWSER | NONE
+   428→   428→  locPrecisionM      Float?
+   429→   429→  locStatus          String?   // OK | PERMISSION_DENIED | UNAVAILABLE
+   430→   430→  locNote            String?   // motivo quando localização indisponível (FR-052)
+   431→   431→  status             String    @default("SUBMITTED")
+   432→   432→  rejectCategory     String?
+   433→   433→  rejectReason       String?
+   434→   434→  duplicateFlag      String?   // POSSIBLE_DUPLICATE | NONE
+   435→   435→  duplicateOfId      String?
+   436→   436→  duplicateScore     Float?
+   437→   437→  noReceiptReason    String?   // excepção documentada (FR-060)
+   438→   438→  voidReason         String?
+   439→   439→  voidedById         String?
+   440→   440→  voidedAt           DateTime?
+   441→   441→  isDemo             Boolean   @default(false)
+   442→   442→  createdAt          DateTime  @default(now())
+   443→   443→  updatedAt          DateTime  @updatedAt
+   444→   444→
+   445→   445→  trip        Trip         @relation(fields: [tripId], references: [id])
+   446→   446→  driver      Driver?      @relation("ExpenseDriver", fields: [driverId], references: [id])
+   447→   447→  attachments Attachment[]
+   448→   448→
+   449→   449→  @@index([companyId, status])
+   450→   450→  @@index([tripId])
+   451→   451→  @@index([companyId, expenseDate])
+   452→   452→}
+   453→   453→
+   454→   454→model Attachment {
+   455→   455→  id           String   @id @default(cuid())
+   456→   456→  companyId    String
+   457→   457→  kind         String   @default("RECEIPT") // RECEIPT | DOC | POD | INCIDENT | OTHER
+   458→   458→  expenseId    String?
+   459→   459→  tripId       String?
+   460→   460→  incidentId   String?
+   461→   461→  documentId   String?
+   462→   462→  workOrderId  String?
+   463→   463→  path         String   // caminho privado (db/uploads)
+   464→   464→  originalName String
+   465→   465→  mime         String
+   466→   466→  size         Int
+   467→   467→  hash         String   // SHA-256 — integridade (SEC-007)
+   468→   468→  width        Int?
+   469→   469→  height       Int?
+   470→   470→  capturedAt   DateTime?
+   471→   471→  uploadedById String?
+   472→   472→  createdAt    DateTime @default(now())
+   473→   473→
+   474→   474→  expense Expense? @relation(fields: [expenseId], references: [id])
+   475→   475→
+   476→   476→  @@index([expenseId])
+   477→   477→}
+   478→   478→
+   479→   479→// ------------------------- 6.7 Adiantamentos ------------------------
+   480→   480→
+   481→   481→model Advance {
+   482→   482→  id             String   @id @default(cuid())
+   483→   483→  companyId      String
+   484→   484→  tripId         String
+   485→   485→  driverId       String
+   486→   486→  amountMinor    Int
+   487→   487→  currency       String
+   488→   488→  convertedMinor Int?
+   489→   489→  method         String?
+   490→   490→  authorizedById String?
+   491→   491→  docRef         String?
+   492→   492→  settledMinor   Int?
+   493→   493→  settledCurrency String?
+   494→   494→  grantedAt      DateTime @default(now())
+   495→   495→  notes          String?
+   496→   496→
+   497→   497→  trip   Trip   @relation(fields: [tripId], references: [id])
+   498→   498→  driver Driver @relation("AdvanceDriver", fields: [driverId], references: [id])
+   499→   499→
+   500→   500→  @@index([tripId])
+   501→   501→}
+   502→   502→
+   503→   503→model PerDiemRule {
+   504→   504→  id          String  @id @default(cuid())
+   505→   505→  companyId   String
+   506→   506→  country     String
+   507→   507→  city        String?
+   508→   508→  category    String?
+   509→   509→  amountMinor Int
+   510→   510→  currency    String
+   511→   511→  active      Boolean @default(true)
+   512→   512→
+   513→   513→  @@index([companyId])
+   514→   514→}
+   515→   515→
+   516→   516→model ExchangeRate {
+   517→   517→  id        String   @id @default(cuid())
+   518→   518→  companyId String?
+   519→   519→  fromCcy   String
+   520→   520→  toCcy     String
+   521→   521→  rate      String   // string decimal — precisão arbitrária
+   522→   522→  source    String   @default("MANUAL") // MANUAL | API | TRIP_TABLE
+   523→   523→  setById   String?
+   524→   524→  note      String?
+   525→   525→  effectiveAt DateTime @default(now())
+   526→   526→  createdAt DateTime @default(now())
+   527→   527→
+   528→   528→  @@index([companyId, fromCcy, toCcy])
+   529→   529→}
+   530→   530→
+   531→   531→// ------------------------- 10. Manutenção ---------------------------
+   532→   532→
+   533→   533→model MaintenancePlan {
+   534→   534→  id           String   @id @default(cuid())
+   535→   535→  companyId    String
+   536→   536→  vehicleId    String
+   537→   537→  serviceType  String   // oleo | filtros | travoes | pneus | suspensao | arrefecimento | transmissao | inspecao
+   538→   538→  intervalKm   Float?
+   539→   539→  intervalDays Int?
+   540→   540→  lastDoneKm   Float?
+   541→   541→  lastDoneAt   DateTime?
+   542→   542→  thresholdKm  Float?   // antecedência do alerta (MNT-002)
+   543→   543→  thresholdDays Int?
+   544→   544→  active       Boolean  @default(true)
+   545→   545→  notes        String?
+   546→   546→  createdAt    DateTime @default(now())
+   547→   547→
+   548→   548→  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+   549→   549→
+   550→   550→  @@index([vehicleId])
+   551→   551→}
+   552→   552→
+   553→   553→// Estados: OPEN | IN_PROGRESS | DONE | CANCELLED
+   554→   554→model WorkOrder {
+   555→   555→  id            String    @id @default(cuid())
+   556→   556→  companyId     String
+   557→   557→  code          String    @unique
+   558→   558→  vehicleId     String
+   559→   559→  tripId        String?
+   560→   560→  incidentId    String?
+   561→   561→  type          String    @default("CORRECTIVE") // PREVENTIVE | CORRECTIVE
+   562→   562→  symptom       String
+   563→   563→  diagnosis     String?
+   564→   564→  priority      String    @default("NORMAL") // LOW | NORMAL | HIGH | CRITICAL
+   565→   565→  critical      Boolean   @default(false) // MNT-004: bloqueia despacho
+   566→   566→  blocksVehicle Boolean   @default(true)
+   567→   567→  workshop      String?
+   568→   568→  status        String    @default("OPEN")
+   569→   569→  odometerKm    Float?
+   570→   570→  openedAt      DateTime  @default(now())
+   571→   571→  closedAt      DateTime?
+   572→   572→  releasedById  String?   // prova de libertação
+   573→   573→  releasedAt    DateTime?
+   574→   574→  laborCostMinor Int      @default(0)
+   575→   575→  partsCostMinor Int      @default(0)
+   576→   576→  currency      String    @default("MZN")
+   577→   577→  notes         String?
+   578→   578→  createdAt     DateTime  @default(now())
+   579→   579→  updatedAt     DateTime  @updatedAt
+   580→   580→
+   581→   581→  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+   582→   582→
+   583→   583→  @@index([companyId, status])
+   584→   584→  @@index([vehicleId])
+   585→   585→}
+   586→   586→
+   587→   587→model Tire {
+   588→   588→  id              String   @id @default(cuid())
+   589→   589→  companyId       String
+   590→   590→  serial          String
+   591→   591→  brand           String?
+   592→   592→  model           String?
+   593→   593→  size            String?
+   594→   594→  status          String   @default("IN_STOCK") // IN_STOCK | INSTALLED | REPAIR | RETIRED
+   595→   595→  vehicleId       String?
+   596→   596→  position        String?  // ex: E1, E2, DI, DE, T1...
+   597→   597→  installedAt     DateTime?
+   598→   598→  installedOdoKm  Float?
+   599→   599→  notes           String?
+   600→   600→  createdAt       DateTime @default(now())
+   601→   601→  updatedAt       DateTime @updatedAt
+   602→   602→
+   603→   603→  @@unique([companyId, serial])
+   604→   604→}
+   605→   605→
+   606→   606→model TireEvent {
+   607→   607→  id        String   @id @default(cuid())
+   608→   608→  companyId String
+   609→   609→  tireId    String
+   610→   610→  type      String   // INSTALL | REMOVE | ROTATE | REPAIR | REPLACE
+   611→   611→  vehicleId String?
+   612→   612→  position  String?
+   613→   613→  odoKm     Float?
+   614→   614→  date      DateTime @default(now())
+   615→   615→  note      String?
+   616→   616→  byUserId  String?
+   617→   617→
+   618→   618→  @@index([tireId])
+   619→   619→}
+   620→   620→
+   621→   621→model FuelLog {
+   622→   622→  id                String   @id @default(cuid())
+   623→   623→  clientUuid        String   @unique
+   624→   624→  companyId         String
+   625→   625→  vehicleId         String
+   626→   626→  tripId            String?
+   627→   627→  driverId          String?
+   628→   628→  liters            Float
+   629→   629→  pricePerLiterMinor Int
+   630→   630→  currency          String
+   631→   631→  totalMinor        Int
+   632→   632→  fuelType          String   @default("DIESEL")
+   633→   633→  station           String?
+   634→   634→  odoKm             Float
+   635→   635→  deviceTime        DateTime
+   636→   636→  receivedTime      DateTime @default(now())
+   637→   637→  attachmentId      String?
+   638→   638→  expenseId         String?
+   639→   639→  flagsJson         String?  // anomalias (FUEL-003)
+   640→   640→  createdById       String?
+   641→   641→  createdAt         DateTime @default(now())
+   642→   642→
+   643→   643→  vehicle Vehicle  @relation(fields: [vehicleId], references: [id])
+   644→   644→  trip    Trip?    @relation(fields: [tripId], references: [id])
+   645→   645→  driver  Driver?  @relation("FuelLogDriver", fields: [driverId], references: [id])
+   646→   646→
+   647→   647→  @@index([vehicleId, odoKm])
+   648→   648→  @@index([companyId, deviceTime])
+   649→   649→}
+   650→   650→
+   651→   651→// ------------------------- 10.4 Documentos --------------------------
+   652→   652→
+   653→   653→model DocumentItem {
+   654→   654→  id            String    @id @default(cuid())
+   655→   655→  companyId     String
+   656→   656→  ownerType     String    // COMPANY | VEHICLE | DRIVER | TRAILER | TRIP
+   657→   657→  vehicleId     String?
+   658→   658→  driverId      String?
+   659→   659→  trailerId     String?
+   660→   660→  tripId        String?
+   661→   661→  type          String    // seguro | inspecao | licenca | autorizacao_transfronteira | carta | tala | aduaneiro | outro
+   662→   662→  number        String?
+   663→   663→  issuerCountry String?
+   664→   664→  issuedAt      DateTime?
+   665→   665→  expiresAt     DateTime?
+   666→   666→  blocking      Boolean   @default(false) // bloqueia partida quando expirado (DOC-002)
+   667→   667→  status        String    @default("VALID") // VALID | EXPIRING | EXPIRED
+   668→   668→  attachmentId  String?
+   669→   669→  notes         String?
+   670→   670→  createdAt     DateTime  @default(now())
+   671→   671→  updatedAt     DateTime  @updatedAt
+   672→   672→
+   673→   673→  @@index([companyId, expiresAt])
+   674→   674→  @@index([vehicleId])
+   675→   675→  @@index([driverId])
+   676→   676→}
+   677→   677→
+   678→   678→// ------------------------- Ocorrências ------------------------------
+   679→   679→
+   680→   680→model Incident {
+   681→   681→  id           String   @id @default(cuid())
+   682→   682→  clientUuid   String   @unique
+   683→   683→  companyId    String
+   684→   684→  tripId       String?
+   685→   685→  vehicleId    String?
+   686→   686→  driverId     String?
+   687→   687→  type         String   // ACIDENTE | AVARIA | RETENCAO | ROUBO | PERDA_CARGA | OUTRO
+   688→   688→  severity     String   @default("MEDIUM") // CRITICAL | HIGH | MEDIUM | LOW
+   689→   689→  description  String
+   690→   690→  lat          Float?
+   691→   691→  lng          Float?
+   692→   692→  deviceTime   DateTime
+   693→   693→  receivedTime DateTime @default(now())
+   694→   694→  status       String   @default("OPEN") // OPEN | IN_REVIEW | RESOLVED
+   695→   695→  resolution   String?
+   696→   696→  authorUserId String?
+   697→   697→  authorLabel  String?
+   698→   698→  createdAt    DateTime @default(now())
+   699→   699→
+   700→   700→  trip    Trip?    @relation(fields: [tripId], references: [id])
+   701→   701→  vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
+   702→   702→  driver  Driver?  @relation("IncidentDriver", fields: [driverId], references: [id])
+   703→   703→
+   704→   704→  @@index([tripId])
+   705→   705→}
+   706→   706→
+   707→   707→// ------------------------- 15. Alertas e notificações ---------------
+   708→   708→
+   709→   709→model Alert {
+   710→   710→  id             String    @id @default(cuid())
+   711→   711→  companyId      String
+   712→   712→  severity       String    @default("MEDIUM") // CRITICAL | HIGH | MEDIUM | INFO
+   713→   713→  type           String    // CHARGER_MISSING | DOC_EXPIRED | MAINTENANCE_CRITICAL | GPS_NO_POWER | GPS_STALLED | ROUTE_DEVIATION | LONG_STOP | BUDGET_EXCEEDED | DUPLICATE_EXPENSE | SPEEDING | GEOFENCE | SOS | OTHER
+   714→   714→  title          String
+   715→   715→  message        String
+   716→   716→  refType        String?   // TRIP | VEHICLE | EXPENSE | DEVICE | DOCUMENT ...
+   717→   717→  refId          String?
+   718→   718→  vehicleId      String?
+   719→   719→  tripId         String?
+   720→   720→  status         String    @default("OPEN") // OPEN | ACK | CLOSED
+   721→   721→  ackById        String?
+   722→   722→  ackAt          DateTime?
+   723→   723→  closeReason    String?
+   724→   724→  closedById     String?
+   725→   725→  closedAt       DateTime?
+   726→   726→  createdAt      DateTime  @default(now())
+   727→   727→
+   728→   728→  @@index([companyId, status, severity])
+   729→   729→  @@index([createdAt])
+   730→   730→}
+   731→   731→
+   732→   732→model Notification {
+   733→   733→  id        String    @id @default(cuid())
+   734→   734→  companyId String
+   735→   735→  userId    String?
+   736→   736→  severity  String    @default("INFO")
+   737→   737→  title     String
+   738→   738→  body      String
+   739→   739→  refType   String?
+   740→   740→  refId     String?
+   741→   741→  channel   String    @default("IN_APP") // IN_APP | EMAIL | SMS (externos pendentes de fornecedor)
+   742→   742→  deliveryStatus String @default("PENDING")
+   743→   743→  readAt    DateTime?
+   744→   744→  createdAt DateTime @default(now())
+   745→   745→
+   746→   746→  @@index([userId, readAt])
+   747→   747→}
+   748→   748→
+   749→   749→// ------------------------- Auditoria --------------------------------
+   750→   750→
+   751→   751→model AuditLog {
+   752→   752→  id        String   @id @default(cuid())
+   753→   753→  companyId String?
+   754→   754→  userId    String?
+   755→   755→  userName  String?
+   756→   756→  action    String   // LOGIN | LOGOUT | CREATE | UPDATE | DELETE | APPROVE | REJECT | CLOSE | REOPEN | EXPORT | RATE_CHANGE | ASSIGN | REVOKE | ROTATE_KEY | SIM_CONTROL ...
+   757→   757→  entity    String
+   758→   758→  entityId  String?
+   759→   759→  beforeJson String?
+   760→   760→  afterJson  String?
+   761→   761→  reason    String?
+   762→   762→  ip        String?
+   763→   763→  userAgent String?
+   764→   764→  createdAt DateTime @default(now())
+   765→   765→
+   766→   766→  @@index([companyId, createdAt])
+   767→   767→  @@index([entity, entityId])
+   768→   768→}
+   769→   769→
+   770→   770→// ------------------------- Sincronização ----------------------------
+   771→   771→
+   772→   772→// Fila/ACK do lado servidor (OFF-004): cada submissão offline é
+   773→   773→// registada com clientUuid; só há ACK durável quando registado.
+   774→   774→model SyncRecord {
+   775→   775→  id           String   @id @default(cuid())
+   776→   776→  clientUuid   String   @unique
+   777→   777→  companyId    String
+   778→   778→  userId       String?
+   779→   779→  deviceId     String?
+   780→   780→  type         String   // EXPENSE | INCIDENT | TRIP_EVENT | FUEL_LOG | CHECKLIST | GPS_MOBILE
+   781→   781→  payloadJson  String
+   782→   782→  status       String   @default("RECEIVED") // RECEIVED | PROCESSED | ERROR
+   783→   783→  attempts     Int      @default(1)
+   784→   784→  error        String?
+   785→   785→  deviceTime   DateTime?
+   786→   786→  receivedTime DateTime @default(now())
+   787→   787→  processedAt  DateTime?
+   788→   788→
+   789→   789→  @@index([companyId, status])
+   790→   790→}
+   791→   791→
+   792→   792→// ------------------------- Parâmetros e numeração -------------------
+   793→   793→
+   794→   794→model Setting {
+   795→   795→  id        String   @id @default(cuid())
+   796→   796→  companyId String
+   797→   797→  key       String
+   798→   798→  valueJson String
+   799→   799→
+   800→   800→  @@unique([companyId, key])
+   801→   801→}
+   802→   802→
+   803→   803→model Counter {
+   804→   804→  id        String @id @default(cuid())
+   805→   805→  companyId String
+   806→   806→  key       String // trip | expense | workorder | incident
+   807→   807→  value     Int    @default(0)
+   808→   808→
+   809→   809→  @@unique([companyId, key])
+   810→   810→}
+   811→   811→

@@ -1,0 +1,1956 @@
+                                                                           SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+
+SIGFCO
+Sistema Integrado de Gestão de Frotas e
+Controles Operacionais
+ESPECIFICAÇÃO DE REQUISITOS DE SOFTWARE (SRS)
+Caderno de implementação, testes e aceitação para a IA desenvolvedora
+
+
+
+ ÂMBITO OPERACIONAL
+ Porto da Beira • EN6 • rotas nacionais e transfronteiriças na África Austral
+
+
+ Campo                                                      Definição
+
+ Versão do documento                                        1.0 - Baseline funcional e técnica proposta
+
+ Data                                                       27 de Outubro de 2026
+
+ Destinatário principal                                     chat.z.ai / equipa ou agente de desenvolvimento
+
+                                                            Português de Moçambique como idioma padrão;
+ Idioma da interface
+                                                            estrutura preparada para inglês
+
+                                                            Pronto para orientar análise, arquitectura,
+ Estado
+                                                            implementação e validação
+
+
+Este documento transforma a proposta inicial num conjunto estruturado de requisitos verificáveis. Os requisitos
+marcados como críticos ou obrigatórios não podem ser removidos, simulados ou considerados concluídos sem
+evidência de implementação e teste.
+
+Confidencialidade: documento de trabalho do projecto. A classificação comercial, o fornecedor de hardware
+GPS, a infraestrutura de alojamento e as integrações externas devem ser confirmados durante a implementação,
+sem reduzir os requisitos essenciais aqui definidos.
+
+
+
+
+                          Documento de trabalho para desenvolvimento • Versão 1.0 • Página 1
+                                                                          SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+CONTROLO DO DOCUMENTO
+ Versão                      Data                         Descrição                       Estado
+
+                                                          Consolidação e expansão da
+                                                          especificação inicial; inclui
+                                                          requisitos de negócio, GPS
+ 1.0                         27-10-2026                                                   Baseline proposta
+                                                          autónomo, offline-first,
+                                                          segurança, dados, testes e
+                                                          entrega.
+
+
+
+
+COMO UTILIZAR ESTE DOCUMENTO
+A Z.ai deve ler o documento integralmente antes de alterar código ou escolher arquitectura. Cada requisito
+tem identificador estável e deve ser ligado a uma implementação, teste e evidência. Em caso de conflito
+entre conveniência técnica e um requisito crítico de segurança, rastreio ou controlo financeiro, o requisito
+não deve ser descartado: deve ser proposta uma alternativa técnica e registada a decisão.
+
+ÍNDICE ESTRUTURAL
+1. Instruções obrigatórias para a IA desenvolvedora
+2. Visão, objectivos, âmbito e exclusões
+3. Glossário, pressupostos e princípios de desenho
+4. Perfis, permissões e segregação de funções
+5. Fluxos operacionais e estados
+6. Requisitos funcionais por módulo
+7. GPS, telemetria e rastreio autónomo do veículo
+8. Aplicação móvel, operação offline e sincronização
+9. Gestão financeira, despesas, moedas e antifraude
+10. Manutenção, pneus, combustível e documentos
+11. Requisitos de interface e experiência de utilização
+12. Requisitos não funcionais, segurança e privacidade
+13. Modelo de dados de referência
+14. Arquitectura, integrações e decisões de implementação
+15. Relatórios, indicadores e alertas
+16. Testes, critérios de aceitação e definição de concluído
+17. Plano de implementação por fases
+18. Entregáveis, operação e manutenção
+19. Decisões que exigem confirmação de negócio ou fornecedor
+20. Referências técnicas e notas de conformidade
+
+  REGRA FUNDAMENTAL
+  O camião deve poder ser localizado sem depender de o motorista abrir a aplicação. O rastreador dedicado
+  instalado no veículo é a fonte primária de posição; a localização do telemóvel é uma fonte complementar. O
+  sistema deve guardar dados durante as falhas de rede e sincronizá-los automaticamente quando a
+  comunicação regressar.
+
+
+
+
+                        Documento de trabalho para desenvolvimento • Versão 1.0 • Página 2
+                                                                          SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+1. INSTRUÇÕES OBRIGATÓRIAS PARA A IA DESENVOLVEDORA
+Esta secção é uma instrução directa ao agente de desenvolvimento responsável por construir o SIGFCO.
+Deve ser tratada como parte dos requisitos de entrega, e não como recomendação informal.
+DEV-001 | Ler e decompor o SRS [Obrigatório] Antes de programar, produzir uma lista de módulos,
+requisitos, dependências, riscos, decisões pendentes e testes. Mapear cada requisito deste documento para
+código e evidência de teste.
+
+DEV-002 | Inspeccionar o ambiente existente [Obrigatório] Se existir repositório, inspeccionar a estrutura,
+a stack, o banco de dados, autenticação, deploy e funcionalidades já implementadas. Não substituir tecnologias
+nem apagar trabalho funcional sem apresentar a razão e a migração necessária.
+
+DEV-003 | Não simular funcionalidades como se fossem reais [Obrigatório] Dados de demonstração,
+posição GPS simulada, integrações fictícias, aprovações falsas e gráficos com números fixos devem estar
+claramente identificados como DEMO. Nunca apresentar demonstração como operação real.
+
+DEV-004 | Não deixar controlos sem acção [Obrigatório] Cada botão, filtro, formulário, exportação, ligação,
+menu e acção de estado visível deve funcionar. Controlos não implementados devem ser ocultados ou
+identificados como pendentes, não apresentados como activos.
+
+DEV-005 | Não enfraquecer requisitos críticos [Obrigatório] Não substituir rastreador instalado por
+geolocalização de navegador, nem remover o carregador obrigatório, a segregação por empresa, a trilha de
+auditoria, a sincronização segura ou os controlos de despesas para acelerar a entrega.
+
+DEV-006 | Implementação incremental [Obrigatório] Implementar em módulos verificáveis. Cada fase deve
+incluir migrações de base de dados, validação de permissões, testes automáticos, testes manuais e
+documentação. Corrigir regressões antes de avançar.
+
+DEV-007 | Sem segredos no código cliente [Obrigatório] Chaves privadas, credenciais de serviços, tokens
+administrativos e segredos de integração não podem ficar embutidos no frontend, no repositório público ou em
+ficheiros distribuídos para o motorista.
+
+DEV-008 | Registar decisões técnicas [Obrigatório] Quando houver várias alternativas, documentar a opção
+escolhida, custo, limitações, riscos e impacto nos requisitos, sobretudo para GPS, mapas offline, alojamento,
+notificações e dispositivos de rastreio.
+
+DEV-009 | Não assumir confirmação por silêncio [Obrigatório] Quando uma especificação de fornecedor
+for desconhecida, criar uma interface de integração e uma lista de validação. Não inventar compatibilidade do
+hardware nem declarar a integração concluída antes de um teste real.
+
+DEV-010 | Entregar sistema utilizável e transferível [Obrigatório] Entregar código-fonte, migrações,
+instruções de execução e publicação, variáveis de ambiente de exemplo, testes, credenciais transferíveis sob
+procedimento seguro, manual de utilizador e inventário das integrações.
+
+  CONDIÇÃO DE ACEITAÇÃO
+  O trabalho não está concluído apenas porque a interface abre ou o projecto compila. A conclusão exige
+  fluxos ponta a ponta com base de dados real, permissões correctas, comportamento offline verificado, dados
+  sincronizados, auditoria e testes aprovados.
+
+
+
+
+2. VISÃO, OBJECTIVOS, ÂMBITO E EXCLUSÕES
+2.1 Visão do produto
+O SIGFCO é uma plataforma integrada para controlar veículos, motoristas, viagens, rotas, despesas,
+combustível, manutenção, documentos, localização e ocorrências. Deve funcionar para pequenas, médias
+e grandes transportadoras, começando pelo contexto operacional do Porto da Beira, EN6 e corredores
+nacionais e transfronteiriços da África Austral.
+
+
+
+
+                         Documento de trabalho para desenvolvimento • Versão 1.0 • Página 3
+                                                                        SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+A solução terá um painel Web para administração e escritório e uma experiência móvel para motoristas. A
+experiência móvel pode ser uma PWA instalável, desde que sejam respeitadas as limitações de execução
+em segundo plano. O rastreio primário deverá ser fornecido por um equipamento dedicado instalado no
+camião, com armazenamento local e transmissão autónoma.
+
+2.2 Objectivos de negócio
+   Reduzir viagens sem visibilidade operacional e identificar atrasos, paragens prolongadas, desvios de
+    rota e falhas de comunicação.
+   Reduzir despesas não comprovadas, duplicadas, fora da rota ou acima do orçamento.
+   Comparar consumo de combustível esperado com o consumo registado e a distância efectivamente
+    percorrida.
+   Antecipar avarias, revisões, substituição de pneus e vencimento de documentos.
+   Reunir os dados da viagem do planeamento ao fecho financeiro, incluindo operações em moeda
+    estrangeira.
+   Criar histórico fiável e auditável para gestão, controlo interno, prestação de contas e decisões futuras.
+   Evitar dependência de rede permanente, especialmente em troços com cobertura fraca ou inexistente.
+   Possibilitar crescimento para várias empresas, filiais, frotas, países, moedas e fornecedores de GPS
+    sem reescrever o sistema.
+
+2.3 Âmbito incluído
+   Gestão de empresas, filiais, utilizadores, perfis, permissões e parâmetros operacionais.
+   Cadastro de camiões, reboques, motoristas, rastreadores GPS, telemóveis de trabalho, documentos e
+    estado de disponibilidade.
+   Planeamento, despacho, acompanhamento, execução, registo de ocorrências e fecho de viagens.
+   GPS dedicado no veículo, telemetria básica, histórico, mapa, cercas geográficas, alertas e
+    armazenamento/transmissão diferida.
+   Aplicação móvel de motorista com informação da viagem, checklist, despesas, fotografia de talões,
+    incidentes e fila de sincronização offline.
+   Orçamentos de viagem, adiantamentos, despesas em MZN e moedas estrangeiras, conversões,
+    aprovação, rejeição, reconciliação e fecho.
+   Manutenção preventiva e correctiva, pneus, abastecimentos, quilometragem, custos e
+    indisponibilidade.
+   Gestão de documentos e alertas de vencimento.
+   Relatórios, dashboards, exportação, notificações e auditoria.
+   Preparação para integração de hardware GPS, fornecedores de mapas, correio electrónico, SMS ou
+    outros canais aprovados.
+
+2.4 Exclusões ou funcionalidades que exigem decisão específica
+   Imobilização remota do motor, corte de combustível ou comando remoto do veículo: fora do âmbito
+    inicial por risco de segurança; exige análise legal, técnica e autorização expressa.
+   Contabilidade fiscal completa, emissão oficial de factura electrónica e integração com sistemas fiscais:
+    não assumir sem requisitos e validação locais próprios.
+   Pagamento automático de combustível, portagens ou alfândega através de terceiros: requer contrato,
+    API e credenciais do fornecedor.
+   Leitura directa do CAN bus/OBD, tacógrafo ou sensores avançados: depende do modelo do veículo e
+    equipamento; criar capacidade de integração futura, sem presumir disponibilidade.
+   Rastreamento por satélite sem rede celular em zonas remotas: não é garantido por um GPS GNSS
+    comum; requer terminal e serviço de comunicação satelital compatíveis, se vier a ser contratado.
+
+
+
+
+                       Documento de trabalho para desenvolvimento • Versão 1.0 • Página 4
+                                                                                SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+2.5 Área geográfica e configuração
+A aplicação deve começar configurada para Moçambique, fuso horário Africa/Maputo e moeda-base MZN.
+As rotas iniciais incluem Porto da Beira, EN6, cidades e fronteiras utilizadas pela empresa, bem como
+destinos nos países vizinhos, incluindo Zimbabwe, Malawi, Zâmbia e República Democrática do Congo,
+conforme rotas efectivamente contratadas. Países, pontos de passagem, fronteiras, moeda, fuso horário e
+regras de viagem devem ser configuráveis; não codificar a lista de rotas de forma rígida.
+
+
+3. GLOSSÁRIO, PRESSUPOSTOS E PRINCÍPIOS DE DESENHO
+    Termo                                                       Significado
+
+                                                                Software Requirements Specification; especificação
+    SRS
+                                                                verificável dos requisitos do sistema.
+
+                                                                Aplicação Web Progressiva instalável através do navegador;
+    PWA                                                         não equivale a uma aplicação nativa em todas as
+                                                                capacidades de segundo plano.
+
+                                                                Sistema de navegação por satélite usado pelo equipamento
+    GNSS/GPS                                                    para calcular a posição; o cálculo da posição não exige, por
+                                                                si só, internet.
+
+                                                                Equipamento instalado no veículo, alimentado pelo veículo
+    Rastreador dedicado                                         e com memória local, usado como fonte primária de
+                                                                telemetria.
+
+                                                                Armazenar eventos localmente quando não há rede e
+    Store-and-forward                                           encaminhá-los depois, de forma ordenada e sem
+                                                                duplicações.
+
+                                                                Zona definida no mapa que gera eventos quando um veículo
+    Cerca geográfica / geofence
+                                                                entra, sai ou permanece nela.
+
+                                                                Proof of Delivery; comprovativo de entrega da carga,
+    POD
+                                                                quando aplicável.
+
+                                                                Ajuda de custo diária atribuída de acordo com política da
+    Per diem
+                                                                empresa, duração, destino e regras aprovadas.
+
+    RBAC                                                        Controlo de acesso baseado em função e permissões.
+
+                                                                Empresa cliente isolada logicamente das restantes empresas
+    Tenant
+                                                                na mesma plataforma.
+
+                                                                Objectivos de perda máxima de dados aceitável e de tempo
+    RPO / RTO
+                                                                para recuperar um serviço, respectivamente.
+
+    MFA                                                         Autenticação multifactor.
+
+
+
+
+3.1 Pressupostos
+      Cada empresa é responsável por confirmar os seus procedimentos internos, limites de despesa,
+       documentos exigidos e política de retenção de dados.
+      Cada camião operacional terá um rastreador dedicado compatível, instalado por fornecedor ou
+       técnico habilitado e associado ao veículo no sistema.
+      Cada camião deve ter um carregador funcional e acessível para o telemóvel de trabalho, verificado
+       antes da libertação da viagem.
+      A disponibilidade de rede móvel varia por estrada e país. O sistema não deve prometer transmissão
+       em tempo real quando a rede não permite comunicação.
+      Os valores-limite de velocidade, paragens, desvios, manutenção, consumo e alertas serão
+       parametrizáveis por empresa, veículo, rota ou tipo de operação.
+      As integrações de terceiros só podem ser declaradas operacionais após credenciais válidas e teste em
+       ambiente real controlado.
+
+
+                              Documento de trabalho para desenvolvimento • Versão 1.0 • Página 5
+                                                                                SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+3.2 Princípios obrigatórios
+      Offline-first para entrada de dados do motorista, com persistência local real e indicação visível do
+       estado de sincronização.
+      Segurança por defeito: acesso mínimo necessário, isolamento por empresa e autorização no servidor,
+       não apenas na interface.
+      Auditoria: registar quem fez o quê, quando, sobre que registo e qual foi o valor anterior e posterior
+       quando relevante.
+      Consistência financeira: documentos aprovados não são apagados nem alterados silenciosamente;
+       correcções são feitas por reversão ou lançamento compensatório.
+      Interoperabilidade: separação entre lógica de negócio e fornecedores de GPS, mapas, mensagens e
+       armazenamento.
+      Não bloquear o trabalho seguro do motorista com formulários extensos; reduzir interacções durante a
+       condução e desencorajar a utilização do telemóvel em movimento.
+
+
+4. PERFIS, PERMISSÕES E SEGREGAÇÃO DE FUNÇÕES
+O sistema deve suportar os seguintes perfis predefinidos, permitindo permissões mais finas por empresa.
+Um mesmo utilizador pode acumular funções apenas quando a política de controlo interno o permitir;
+acções críticas devem ter separação de funções quando configurada.
+
+    Perfil                                                      Responsabilidades e limites
+
+                                                                Configuração técnica global, tenants, estado do serviço e
+                                                                suporte autorizado. Não deve consultar automaticamente
+    Administrador da plataforma
+                                                                despesas ou localização pessoal de qualquer empresa sem
+                                                                autorização e trilha de auditoria.
+
+                                                                Configura empresa, políticas, utilizadores, permissões,
+    Administrador da empresa / Director
+                                                                parâmetros, relatórios globais e aprovações de alto nível.
+
+                                                                Gestão de veículos, motoristas, disponibilidade,
+    Gestor de frota                                             manutenção, documentos, dispositivos GPS e estado
+                                                                operacional.
+
+                                                                Planeia viagens, atribui motorista e viatura, acompanha
+    Despachante / Operações                                     rota, checkpoints, atrasos e ocorrências. Não aprova as
+                                                                próprias despesas se a segregação estiver activa.
+
+                                                                Analisa despesas, adiantamentos, moedas, comprovativos,
+                                                                reconciliações, orçamento e fecho financeiro. Pode não ter
+    Financeiro
+                                                                acesso a localização precisa contínua, salvo necessidade
+                                                                autorizada.
+
+                                                                Acede apenas ao seu perfil, viagem activa e histórico
+    Motorista                                                   estritamente necessário; regista checklist, despesas,
+                                                                ocorrências, comprovativos e marcos de viagem.
+
+                                                                Acede a ordens de serviço, avarias, peças, inspecções,
+    Mecânico / Oficina                                          quilometragem e manutenção; não altera despesas
+                                                                financeiras aprovadas.
+
+                                                                Consulta registos e relatórios autorizados, exporta quando
+    Auditor / Leitura                                           permitido, mas não altera dados operacionais ou
+                                                                financeiros.
+
+                                                                Acede apenas aos veículos, viagens e utilizadores da filial
+    Gestor de filial
+                                                                sob a sua responsabilidade, conforme configuração.
+
+
+
+
+4.1 Regras de autorização
+      Cada registo operacional deve conter o identificador da empresa e, quando aplicável, da filial. A
+       consulta deve verificar essa associação no servidor/base de dados.
+
+
+                              Documento de trabalho para desenvolvimento • Versão 1.0 • Página 6
+                                                                                      SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+      O motorista não pode ver viagens de outros motoristas, orçamento global, custos confidenciais,
+       credenciais, nem alterar a atribuição da viagem.
+      O motorista não pode aprovar as próprias despesas nem alterar a decisão de um gestor.
+      O despachante não deve conseguir apagar trilhas GPS, despesas submetidas ou incidentes depois de
+       criados.
+      Operações críticas (atribuir viagem, aprovar/rejeitar despesa, alterar taxa de câmbio, fechar viagem,
+       reabrir fecho, desactivar rastreador, exportar dados sensíveis) devem gerar evento de auditoria.
+      A plataforma deve suportar revogação imediata de sessões e dispositivos em caso de perda de
+       telemóvel ou saída de trabalhador.
+      Permissões devem ser verificadas em cada chamada ao backend/API, incluindo pedidos directos e
+       exportações; esconder um botão não é controlo de segurança.
+
+
+5. FLUXOS OPERACIONAIS E ESTADOS
+5.1 Ciclo de vida de uma viagem
+    Estado                                   Entrada / condição                          Acções permitidas e transição
+
+                                                                                         Editar percurso, orçamento, motorista e
+                                             Viagem em preparação; ainda sem
+    Rascunho                                                                             camião; não aparece como viagem em
+                                             confirmação final.
+                                                                                         curso.
+
+                                                                                         Validar disponibilidade, documentos e
+                                             Dados mínimos completos e recursos
+    Planeada                                                                             conflitos; pode ser agendada ou
+                                             seleccionados.
+                                                                                         cancelada.
+
+                                                                                         Motorista confirma checklist e itens
+                                             Viagem atribuída, aguardando verificação
+    A aguardar checklist                                                                 obrigatórios; GPS e carregador devem
+                                             pré-partida.
+                                                                                         estar operacionais.
+
+                                                                                         Registar partida com hora, localização e
+    Autorizada para partida                  Checklist aprovada e sem bloqueios.
+                                                                                         quilometragem.
+
+                                                                                         Receber telemetria; registar despesas,
+    Em trânsito                              Partida confirmada.                         incidentes, checkpoints, pausas e chegada
+                                                                                         a fronteira.
+
+                                                                                         Registar motivo, local, início, fim e
+                                             Paragem operacional ou retenção
+    Em pausa / retida                                                                    eventual previsão; mantém rastreio
+                                             reportada/derivada.
+                                                                                         activo.
+
+                                                                                         Validar prova de entrega/descarga e
+    Chegada registada                        Veículo chegou ao destino final.            quilometragem; solicitar fecho
+                                                                                         operacional.
+
+                                                                                         Conferir comprovativos, adiantamentos,
+                                             Viagem concluída no terreno, mas falta
+    A aguardar reconciliação                                                             orçamento, diferenças de câmbio e
+                                             rever despesas/documentos.
+                                                                                         incidentes.
+
+                                                                                         Consulta e relatórios; correcções
+                                             Revisão operacional e financeira
+    Fechada                                                                              posteriores apenas por fluxo de
+                                             concluída por utilizador autorizado.
+                                                                                         reabertura autorizado e auditado.
+
+                                                                                         Registar autor, motivo, data e eventuais
+    Cancelada                                Viagem não executada, com motivo.           custos de cancelamento; conservar
+                                                                                         histórico.
+
+
+
+
+5.2 Estados do veículo
+Disponível, Reservado/Planeado, Em trânsito, Em manutenção, Inactivo e Bloqueado por
+segurança/documentação. O estado deve ser calculado a partir dos eventos e das regras, mas as transições
+automáticas devem deixar registo. Não marcar como Disponível um veículo com manutenção crítica
+vencida, documento obrigatório expirado, rastreador inoperacional ou checklist de segurança reprovada,
+conforme política da empresa.
+
+
+
+                               Documento de trabalho para desenvolvimento • Versão 1.0 • Página 7
+                                                                          SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+5.3 Regras contra conflitos
+   Um camião e um motorista não podem estar associados a duas viagens activas com períodos
+    sobrepostos, salvo regra expressa para escalas e tripulação múltipla.
+   Uma viagem não pode iniciar sem motorista activo, veículo elegível, documentos obrigatórios válidos,
+    rastreador registado e checklist pré-partida aprovada.
+   Uma despesa pertence a uma viagem e a um autor; não pode ser submetida para uma viagem fechada
+    sem procedimento controlado de reabertura.
+   Todos os horários devem ser guardados de forma consistente (preferencialmente UTC no servidor) e
+    apresentados no fuso horário configurado para a operação. Não misturar datas de países sem guardar
+    o fuso aplicável.
+   Eventos atrasados recebidos depois do restabelecimento da rede devem conservar o horário original
+    do dispositivo e a hora de recepção pelo servidor.
+
+
+6. REQUISITOS FUNCIONAIS POR MÓDULO
+6.1 Plataforma, empresas e configuração
+FR-001 | Multiempresa / multi-tenant [Obrigatório] O sistema deve permitir várias empresas na mesma
+plataforma com isolamento lógico e verificável dos dados, utilizadores, documentos, frotas, despesas,
+configurações e relatórios.
+
+FR-002 | Configuração da empresa [Obrigatório] Permitir nome legal/comercial, NUIT ou identificador fiscal
+quando aplicável, morada, contactos, logotipo, filiais, moeda-base, fuso horário, idiomas, política de
+manutenção, regras de despesas e alertas.
+
+FR-003 | Parâmetros configuráveis [Obrigatório] Limites de valores, categorias, tolerância de desvios,
+cadência GPS, duração de paragem, níveis de alerta, campos obrigatórios e nomenclaturas não devem exigir
+alteração de código para cada empresa.
+
+FR-004 | Ambientes separados [Obrigatório] Separar desenvolvimento, teste/demonstração e produção.
+Dados de demonstração não podem contaminar os dados reais.
+
+FR-005 | Identificadores e numeração [Obrigatório] Gerar códigos únicos para veículos, motoristas, viagens,
+despesas, ordens de serviço e incidentes. A numeração deve evitar colisões em ambientes multiutilizador e
+multiempresa.
+
+6.2 Registo e gestão de veículos
+FR-010 | Ficha do veículo [Obrigatório] Registar matrícula única no âmbito da empresa (com normalização),
+matrícula estrangeira quando aplicável, marca, modelo, ano, VIN/chassis, tipo de veículo, configuração de eixos,
+capacidade de carga, capacidade do tanque em litros, combustível, quilometragem, consumo de referência, tara
+e estado.
+
+FR-011 | Documentação do veículo [Obrigatório] Guardar tipo, número, país emissor, emissão, validade,
+ficheiro/fotografia, entidade emissora e alertas de vencimento para documentos aplicáveis (seguro, inspecção,
+licença, autorização transfronteiriça e outros definidos pela empresa).
+
+FR-012 | Reboques e combinações [Obrigatório] Permitir registar reboque/cisterna/atrelado separadamente
+e associar/desassociar à viagem com datas, matrícula, capacidade, documentos e histórico.
+
+FR-013 | Histórico do veículo [Obrigatório] Manter histórico de atribuições, quilometragem, manutenção,
+abastecimentos, incidentes, pneus, dispositivos GPS, indisponibilidade e alterações relevantes.
+
+FR-014 | Estados automáticos [Obrigatório] Actualizar o estado operacional com base nas viagens,
+manutenção, elegibilidade documental e incidentes, mantendo a origem do evento e a possibilidade de revisão
+autorizada.
+
+FR-015 | Quilometragem confiável [Obrigatório] Recolher quilometragem no início e fim da viagem e em
+eventos relevantes. Detectar regressões ou valores implausíveis e solicitar correcção justificada em vez de
+aceitar silenciosamente.
+
+
+
+                         Documento de trabalho para desenvolvimento • Versão 1.0 • Página 8
+                                                                          SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+6.3 Motoristas e tripulações
+FR-020 | Ficha do motorista [Obrigatório] Registar nome, código interno, contacto, contacto de emergência
+quando autorizado, estado laboral/operacional, categoria e número da carta, validade, país emissor, formação e
+documentos exigidos.
+
+FR-021 | Elegibilidade [Obrigatório] Impedir atribuição a viagem quando a carta/documentos obrigatórios
+estejam expirados, o motorista esteja inactivo ou exista impedimento de segurança configurado.
+
+FR-022 | Tripulação adicional [Obrigatório] Permitir segundo motorista/ajudante quando necessário, com
+funções, períodos e permissões registados.
+
+FR-023 | Histórico restrito [Obrigatório] Guardar histórico de viagens, incidentes e formação conforme
+política autorizada; limitar acesso a dados pessoais segundo função e necessidade operacional.
+
+6.4 Viagens, rotas e despacho
+FR-030 | Criar viagem [Obrigatório] Permitir código, cliente/expedidor, origem, destino, pontos intermédios,
+fronteiras, carga/descrição, referência de carga, motorista(s), camião, reboque, hora/data prevista, distância
+estimada, orçamento, observações e documentos associados.
+
+FR-031 | Plano de rota [Obrigatório] Permitir rota planeada com pontos de passagem, zonas de risco definidas
+pela empresa, portagens, postos de abastecimento, fronteiras, locais de descanso e destinos de entrega. O
+percurso deve ser editável por utilizador autorizado e guardar a versão aprovada.
+
+FR-032 | Disponibilidade e conflitos [Obrigatório] Verificar automaticamente disponibilidade de motorista e
+veículo, sobreposição de viagens, manutenção, validade documental e estado do rastreador antes da
+confirmação.
+
+FR-033 | Orçamento de viagem [Obrigatório] Definir por viagem limites e rubricas para combustível,
+portagens, per diem, alfândega, taxas, manutenção de emergência, comunicações, estacionamento e outras
+despesas autorizadas.
+
+FR-034 | Orçamento por moeda [Obrigatório] Permitir limites em MZN e valores previstos noutras moedas
+quando aplicável, mantendo a moeda original e a moeda-base para consolidação.
+
+FR-035 | Autorização de saída [Obrigatório] Aplicar checklist pré-partida. O sistema não deve libertar a
+viagem quando falhar o carregador obrigatório, o dispositivo GPS obrigatório, documentos críticos ou outro
+item configurado como bloqueante.
+
+FR-036 | Eventos de viagem [Obrigatório] Registar partida, chegada, checkpoint, fronteira, pausa, espera,
+carregamento, descarga, atraso, desvio, mudança de motorista ou veículo com hora, localização, autor e
+justificativo.
+
+FR-037 | Gestão de alterações [Obrigatório] Alterações a veículo, condutor, destino, orçamento ou rota
+depois da autorização devem guardar antes/depois, autor, data e motivo; mudanças críticas podem exigir nova
+aprovação.
+
+FR-038 | Fecho operacional [Obrigatório] No fim, capturar chegada, quilometragem final, prova de entrega
+quando aplicável, ocorrências, despesas em falta e condição do veículo. O fecho financeiro pode ficar pendente
+até revisão.
+
+6.5 Checklist pré-partida e obrigação do carregador
+
+  REQUISITO CRÍTICO - CARREGADOR OBRIGATÓRIO
+  Cada camião da frota em operação deve transportar um carregador de telemóvel funcional, montado ou
+  disponibilizado de forma segura e acessível, compatível com o dispositivo de trabalho. A ausência, avaria ou
+  incapacidade de carregar deve bloquear a autorização de partida até à correcção. Esta regra não é
+  substituída pelo rastreador GPS.
+
+
+
+
+                         Documento de trabalho para desenvolvimento • Versão 1.0 • Página 9
+                                                                        SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+FR-040 | Carregador funcional [Obrigatório] A ficha de checklist deve obrigar a confirmar a existência e
+funcionamento do carregador e da alimentação eléctrica. Recomenda-se alimentação automóvel compatível com
+sistemas de 12/24 V, protecção adequada e, quando aplicável, porta USB-C e/ou USB-A compatível com o
+telemóvel da empresa. A especificação eléctrica final deve ser validada por técnico competente.
+
+FR-041 | Suporte seguro de telemóvel [Obrigatório] Registar existência/condição de suporte fixo ou solução
+segura para manter o equipamento acessível sem ser segurado pelo motorista durante a condução.
+
+FR-042 | Verificação do rastreador [Obrigatório] Confirmar que o rastreador está associado ao camião,
+comunica recentemente ou está operacional em modo de armazenamento local, sem alerta crítico de
+alimentação/tamper. Se o equipamento estiver sem rede, isso não deve ser tratado automaticamente como
+avaria quando o diagnóstico confirma cobertura ausente; deve ser visível para o gestor.
+
+FR-043 | Checklist configurável [Obrigatório] A checklist deve incluir pneus, travões/inspecção visual, luzes,
+combustível inicial, documentos, carga/selagem quando aplicável, extintor/itens de segurança exigidos,
+telemóvel, carregador, suporte e GPS. A lista exacta deve ser configurada pela empresa segundo o tipo de veículo
+e operação.
+
+FR-044 | Bloqueio de partida [Obrigatório] Se qualquer item marcado como bloqueante falhar, a viagem
+permanece bloqueada. Não deve haver um botão genérico de “continuar mesmo assim” disponível ao motorista.
+Uma excepção a um requisito legal ou de segurança não pode ser resolvida apenas pela aplicação; deve exigir
+correcção ou procedimento formal autorizado fora do fluxo normal.
+
+6.6 Despesas, talões e aprovação
+FR-050 | Registar despesa [Obrigatório] O motorista deve registar categoria, montante, moeda, data/hora,
+estabelecimento/beneficiário, descrição curta, viagem, método de pagamento, observação e fotografia(s) do
+comprovativo.
+
+FR-051 | Câmara e carregamento de imagem [Obrigatório] Permitir tirar fotografia directamente pela
+câmara ou escolher ficheiro, rever a imagem, repetir a captura e comprimir a imagem no dispositivo antes do
+envio, preservando legibilidade do valor, data e entidade.
+
+FR-052 | GPS de despesa [Obrigatório] Capturar automaticamente as coordenadas disponíveis, precisão,
+timestamp, fonte e estado de permissão no momento do registo/submissão. Se estiver offline, guardar a posição
+obtida e sincronizar depois; se a localização não estiver disponível, exigir motivo e sinalizar a despesa para
+revisão em vez de inventar coordenadas.
+
+FR-053 | Categorias iniciais [Obrigatório] Combustível (gasóleo e outros configurados), portagens, per diem,
+alfândega/fronteira, estacionamento, manutenção de emergência, pneus, lavagem, comunicação, alojamento,
+alimentação conforme política, taxas locais e outros justificados.
+
+FR-054 | Referência de combustível [Obrigatório] Para combustível, registar litros, preço por litro quando
+conhecido, montante, estação/posto, quilometragem, tipo de combustível, capacidade do tanque, fotografia do
+talão e, quando disponível, odómetro ou leitura da bomba.
+
+FR-055 | Estado da despesa [Obrigatório] Estados mínimos: Rascunho local, Pendente de sincronização,
+Submetida/Pendente de aprovação, Em revisão, Aprovada, Rejeitada, Devolvida para correcção, Reconciliada e
+Anulada por fluxo controlado.
+
+FR-056 | Aprovar/rejeitar [Obrigatório] O aprovador deve poder verificar imagem, valor, moeda,
+geolocalização, orçamento, viagem, duplicados e notas; rejeitar ou devolver exige motivo obrigatório e
+notificação ao motorista.
+
+FR-057 | Protecção dos registos aprovados [Obrigatório] Despesa aprovada ou reconciliada não pode ser
+editada/apagada silenciosamente. Uma correcção deve usar estorno, reclassificação ou novo lançamento, com
+relação ao registo original e auditoria.
+
+FR-058 | Detecção de duplicados [Obrigatório] Detectar potenciais duplicados por hash do ficheiro, data,
+montante, moeda, categoria, posto e proximidade temporal/espacial. A detecção deve sinalizar para revisão e
+não rejeitar automaticamente sem explicação configurada.
+
+
+
+
+                       Documento de trabalho para desenvolvimento • Versão 1.0 • Página 10
+                                                                         SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+FR-059 | Limites e excepções [Obrigatório] Comparar gasto real com orçamento e política por categoria.
+Desvio superior ao limite deve gerar alerta e exigir justificativa e/ou aprovação adicional, conforme regra da
+empresa.
+
+FR-060 | Sem comprovativo [Obrigatório] Permitir excepção documentada apenas para
+categorias/configurações aprovadas, com motivo obrigatório, valor, autor e aprovação reforçada. Não tratar a
+ausência de comprovativo como se fosse comprovativo válido.
+
+6.7 Adiantamentos e per diem
+FR-065 | Adiantamento [Obrigatório] Registar valor concedido ao motorista por viagem, moeda, data, método,
+responsável, documento e referência de autorização.
+
+FR-066 | Cálculo de per diem [Obrigatório] Permitir taxas por país, cidade, categoria, duração e política. A
+aplicação deve apresentar o cálculo e as regras usadas; alterações manuais exigem motivo e permissão.
+
+FR-067 | Reconciliação [Obrigatório] No fecho, comparar adiantamento, despesas aprovadas e saldo a
+devolver ou reembolsar. O resultado deve ser explícito e exportável, sem misturar moedas sem taxa de câmbio
+registada.
+
+
+7. GPS, TELEMETRIA E RASTREIO AUTÓNOMO DO VEÍCULO
+  ARQUITECTURA DE RASTREIO OBRIGATÓRIA
+  A fonte primária de localização é um rastreador GNSS dedicado, instalado e alimentado no próprio camião,
+  com memória local e envio autónomo. O telemóvel/PWA do motorista é complementar para geolocalização
+  de despesas, incidentes e continuidade operacional. A PWA não pode ser usada como única garantia de
+  rastreio contínuo quando o navegador ou sistema operativo suspende a aplicação.
+
+
+
+7.1 Requisitos mínimos do equipamento
+GPS-001 | Um rastreador por veículo [Obrigatório] Cada camião activo deve possuir dispositivo GPS
+dedicado, identificado por número de série/IMEI ou identificador equivalente, associado a um único veículo
+activo de cada vez e com histórico de associações.
+
+GPS-002 | Posicionamento sem internet [Obrigatório] O equipamento deve calcular a localização através de
+GNSS quando tem visibilidade de satélites, mesmo sem conexão de dados. A falta de internet deve afectar a
+transmissão, não apagar a recolha da posição.
+
+GPS-003 | Armazenamento e reenvio [Obrigatório] O equipamento deve guardar pontos e eventos na
+memória local durante períodos sem rede e retransmiti-los automaticamente ao regressar a conectividade.
+Exigir capacidade documentada para, no mínimo, 30 dias na cadência operacional acordada, com identificação
+de sequência e timestamps originais.
+
+GPS-004 | Energia do veículo e reserva [Obrigatório] O equipamento deve estar instalado com alimentação
+apropriada ao veículo, protecção eléctrica e bateria de reserva ou mecanismo equivalente para sinalizar
+interrupção de energia. A instalação deve ser validada por técnico competente.
+
+GPS-005 | Conectividade regional [Obrigatório] Seleccionar dispositivo com modem e bandas suportadas
+pelos operadores usados nas rotas, SIM/eSIM e plano de dados compatíveis com os países percorridos. A
+capacidade multirrede/roaming deve ser confirmada com o fornecedor, não presumida.
+
+GPS-006 | Resistência e instalação [Obrigatório] Equipamento e antenas devem ser adequados a vibração,
+poeira, calor e condições do veículo comercial, com instalação discreta e segura. Localização física, número de
+série e instalador devem ficar registados.
+
+GPS-007 | Eventos de alimentação e manipulação [Obrigatório] Quando suportado pelo hardware, gerar
+eventos de desligamento, bateria baixa, desconexão da alimentação, abertura/manipulação, remoção de antena
+ou perda de sinal anormal. O evento deve distinguir “sem rede” de “sem alimentação” quando houver telemetria
+suficiente.
+
+
+
+                        Documento de trabalho para desenvolvimento • Versão 1.0 • Página 11
+                                                                         SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+GPS-008 | Interface de fornecedor [Obrigatório] Criar uma camada de integração que permita trocar de
+fornecedor/protocolo sem alterar os módulos de viagem e despesas. Documentar protocolo, autenticação,
+formato, limites de API, retenção e tratamento de erros.
+
+7.2 Cadência e qualidade dos dados
+GPS-010 | Frequência configurável [Obrigatório] Valor inicial proposto: enviar/guardar ponto a cada 30-60
+segundos em movimento e a cada 5 minutos parado, com parâmetros ajustáveis por empresa, dispositivo,
+velocidade, bateria e custo de dados. A configuração efectiva deve ser registada.
+
+GPS-011 | Campos mínimos de posição [Obrigatório] Guardar veículo/dispositivo, latitude, longitude,
+timestamp GNSS, hora de recepção, velocidade, rumo/heading, precisão estimada quando disponível, fonte,
+estado de ignição quando disponível, sequência, qualidade de fixação e indicação de ponto histórico ou ao vivo.
+
+GPS-012 | Visualização de actualidade [Obrigatório] No mapa, apresentar o último ponto, o timestamp e
+uma indicação inequívoca de “actualizado”, “atrasado”, “sem comunicação” ou “histórico”. Não apresentar um
+ponto antigo como se fosse actual.
+
+GPS-013 | Histórico de trajecto [Obrigatório] Permitir consulta do trajecto por veículo, viagem e período,
+com filtro de paragens, eventos, velocidade e pontos recebidos tardiamente. Preservar a ordem cronológica do
+evento e distinguir hora de ocorrência de hora de recepção.
+
+GPS-014 | Qualidade e dados impossíveis [Obrigatório] Marcar pontos com precisão baixa, saltos
+impossíveis, velocidades implausíveis ou timestamps inconsistentes para revisão. Não corrigir silenciosamente a
+coordenada de origem.
+
+GPS-015 | Fonte secundária no telemóvel [Obrigatório] Quando a aplicação móvel conseguir obter
+localização, enviar pontos com a etiqueta de fonte “móvel” e a sua precisão/estado. Não fundir esses pontos com
+os do rastreador sem guardar a origem e regra de precedência.
+
+7.3 Mapa, rota e geofencing
+GPS-020 | Mapa operacional [Obrigatório] Exibir frota no mapa com estado, identificação do camião,
+motorista/viagem conforme permissões, última actualização, velocidade quando disponível, origem do dado e
+situação de conectividade.
+
+GPS-021 | Rota planeada versus real [Obrigatório] Permitir visualizar rota aprovada e trajecto real, calcular
+desvio aproximado e gerar alertas com tolerância configurável. O cálculo depende da qualidade da
+rota/cartografia; qualquer limitação deve ser evidente.
+
+GPS-022 | Cercas geográficas [Obrigatório] Criar geofences para base, porto, clientes, postos, portagens,
+pontos de controlo, fronteiras, zonas de descanso ou áreas restritas; gerar entrada, saída e permanência por
+duração configurável.
+
+GPS-023 | Paragem prolongada [Obrigatório] Detectar imobilização fora dos locais previstos durante
+intervalo parametrizável; classificar como alerta potencial, não como prova automática de irregularidade.
+
+GPS-024 | Chegada estimada [Obrigatório] Mostrar ETA estimada somente quando existir fonte de
+tráfego/rota suficientemente fiável. Na ausência, apresentar estimativa básica e indicar que é aproximada, sem
+prometer precisão.
+
+GPS-025 | Velocidade e eventos [Obrigatório] Quando o dado estiver disponível e for confiável, sinalizar
+excesso de velocidade segundo limites configurados pela empresa/rota. Não assumir que o limite interno
+substitui a sinalização rodoviária ou a legislação aplicável.
+
+GPS-026 | Botão de emergência [Obrigatório] A aplicação pode disponibilizar um alerta SOS discreto para o
+motorista enviar pedido de ajuda com viagem, coordenadas e hora; deve prever uso acidental, confirmação
+segura e escalonamento. O canal de resposta precisa ser definido pela empresa.
+
+GPS-027 | Sem dados não é sem movimento [Obrigatório] Se o último ponto for antigo, exibir falta de
+telemetria; não inferir que o camião está parado, desligado ou avariado sem evidência.
+
+
+
+
+                        Documento de trabalho para desenvolvimento • Versão 1.0 • Página 12
+                                                                         SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+7.4 Requisitos de conectividade e autonomia
+   GNSS é a capacidade de calcular a posição; GSM/LTE/Wi-Fi/satélite é a capacidade de transmitir os
+    dados. O produto deve mostrar estes estados separadamente quando o dispositivo os fornecer.
+   Com rede móvel disponível, o rastreador envia telemetria automaticamente sem que o motorista
+    desbloqueie o telemóvel, abra a aplicação ou carregue num botão.
+   Sem rede móvel, o rastreador continua a recolher e guardar pontos; no regresso da rede, envia os
+    pontos pendentes na ordem correcta e sem criar duplicados.
+   A aplicação Web do escritório deve identificar pontos recebidos em atraso, hora original, hora de
+    recepção e eventual intervalo sem visibilidade.
+   Para rotas com necessidade de comunicação bidireccional fora da cobertura celular, avaliar terminal
+    satelital com serviço contratado. Um GPS comum não transmite por satélite só por ter receptor GNSS.
+   A falta de cobertura não deve ser mascarada com interpolação gráfica como se fossem pontos reais.
+    Linhas ligando dois pontos podem ser apenas representação visual, claramente distinta de telemetria
+    observada.
+
+
+8. APLICAÇÃO MÓVEL, OPERAÇÃO OFFLINE E SINCRONIZAÇÃO
+8.1 Experiência móvel do motorista
+MOB-001 | Acesso simples [Obrigatório] A aplicação do motorista deve funcionar em smartphones Android e
+iOS suportados, com interface responsiva e possibilidade de instalação como PWA quando compatível. Não
+depender de instalações complexas para funções básicas de gestão de viagem e despesas.
+
+MOB-002 | Sessão e dispositivo [Obrigatório] Vincular a sessão ao utilizador autorizado; permitir terminar
+sessão, revogar dispositivo perdido e exigir nova autenticação após período configurável de inactividade.
+
+MOB-003 | Viagem activa [Obrigatório] Mostrar apenas a viagem actual e as informações necessárias:
+destino, sequência de paragens, contacto operacional, orçamento relevante, checklist, estado de GPS, despesas e
+incidentes.
+
+MOB-004 | Entrada rápida [Obrigatório] Formulários com poucos campos por etapa, valores grandes, botões
+acessíveis, labels claros, validação antes de guardar e capacidade de concluir tarefas essenciais com uma mão
+quando o veículo está parado.
+
+MOB-005 | Uso seguro [Obrigatório] A interface deve advertir o motorista para não interagir com o telemóvel
+durante a condução. Não usar interacções que exijam atenção visual contínua enquanto o veículo está em
+movimento; priorizar comandos por voz apenas se forem seguros e realmente implementados.
+
+8.2 Persistência local e offline-first
+OFF-001 | Persistência local durável [Obrigatório] Quando não houver internet, guardar despesas,
+ocorrências, checklist e eventos numa base local persistente, por exemplo IndexedDB para PWA. Não manter os
+dados apenas em memória ou estado temporário da página.
+
+OFF-002 | Fila de sincronização [Obrigatório] Cada registo local deve ter UUID/idempotency key, estado
+local, hora de criação, hora de alteração, versão do esquema e indicador de tentativa. A sincronização deve ser
+retomável depois de fechar/abrir a aplicação ou reiniciar o telemóvel.
+
+OFF-003 | Reenvio idempotente [Obrigatório] O backend deve reconhecer repetição do mesmo evento e não
+criar despesas, fotografias ou incidentes duplicados quando o cliente tenta novamente devido a falha de rede.
+
+OFF-004 | Reconhecimento de servidor [Obrigatório] Só marcar um item como sincronizado depois de
+confirmação do backend. Não remover a única cópia local antes do reconhecimento durável; manter cópia local
+temporária e política de limpeza controlada.
+
+OFF-005 | Tentativas automáticas [Obrigatório] Repetir envios com backoff progressivo, tratamento de
+falhas temporárias e retomada automática quando a rede regressar, sem exigir que o motorista carregue num
+botão de sincronização.
+
+
+
+
+                        Documento de trabalho para desenvolvimento • Versão 1.0 • Página 13
+                                                                         SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+OFF-006 | Estado visível [Obrigatório] Mostrar “Guardado neste telemóvel”, “A aguardar envio”, “A
+sincronizar”, “Sincronizado” ou “Erro que exige acção”, bem como número de registos pendentes e momento da
+última sincronização.
+
+OFF-007 | Conflitos [Obrigatório] Definir regras de resolução. Registos financeiros não devem ser sobrescritos
+silenciosamente; preservar versões e pedir revisão quando houver conflito de estado, viagem fechada ou
+alterações concorrentes.
+
+OFF-008 | Validação do servidor [Obrigatório] Revalidar permissões, associação à viagem, limites, categorias
+e integridade no servidor quando sincronizar. O facto de o dado ter sido guardado offline não significa
+aprovação automática.
+
+OFF-009 | Fotografias offline [Obrigatório] Guardar fotografia comprimida no armazenamento local de
+forma segura até confirmação de envio. Controlar tamanho, integridade, retentativas e recuperação de falha
+parcial de upload.
+
+OFF-010 | Armazenamento cheio [Obrigatório] Monitorizar capacidade local; avisar antecipadamente e não
+perder silenciosamente registos. Bloquear ou orientar limpeza segura apenas depois de confirmação de
+sincronização ou exportação controlada.
+
+8.3 Limites reais da PWA
+
+  NOTA TÉCNICA NÃO NEGOCIÁVEL
+  Uma PWA pode funcionar offline para formulários e sincronização, mas os navegadores e sistemas
+  operativos controlam a execução em segundo plano e a obtenção contínua de localização. A equipa deve
+  testar Android/iOS reais e não prometer localização móvel permanente. A garantia operacional de rastreio
+  contínuo vem do equipamento GPS dedicado; se a empresa exigir telemetria do telemóvel em segundo
+  plano, deve avaliar uma aplicação nativa/companion app e obter as permissões necessárias.
+
+
+OFF-020 | Testes de suspensão [Obrigatório] Testar aplicação em primeiro plano, segundo plano, ecrã
+bloqueado, bateria baixa, modo de poupança de energia, perda de rede, reinício e encerramento pelo sistema
+nos dispositivos-alvo. Documentar diferenças por sistema operativo/navegador.
+
+OFF-021 | Mapas offline [Obrigatório] Permitir preparação/download de dados cartográficos da rota antes da
+partida apenas através de fornecedor ou alojamento cujos termos autorizem explicitamente armazenamento e
+utilização offline. Não executar download em massa proibido a partir de serviços públicos de tiles que não o
+autorizem.
+
+OFF-022 | Dados mínimos de viagem offline [Obrigatório] Antes da partida, permitir guardar em cache o
+resumo da viagem, contactos operacionais, rota aprovada, identificadores, checklist, categorias e políticas
+indispensáveis, com validade e mecanismo de actualização.
+
+OFF-023 | Sincronização sem operador [Obrigatório] A aplicação deve tentar sincronizar automaticamente
+quando houver conectividade e condições permitidas pelo sistema. O sistema deve tolerar os casos em que o
+navegador só permite retomar a sincronização quando a aplicação é reaberta, sem alegar que isso garante
+telemetria do veículo.
+
+
+9. GESTÃO FINANCEIRA, DESPESAS, MOEDAS E ANTIFRAUDE
+9.1 Regras monetárias
+FIN-001 | Moeda-base MZN [Obrigatório] A moeda base da empresa deve ser MZN por defeito. O sistema deve
+permitir moedas estrangeiras configuráveis, incluindo USD, ZAR, ZWG e outras usadas pela operação, sem
+assumir que uma moeda permanece válida para sempre.
+
+FIN-002 | Valor original e convertido [Obrigatório] Guardar sempre montante e moeda originais. Quando
+for necessária consolidação em MZN, guardar taxa aplicada, data/hora, origem da taxa, utilizador que a
+confirmou e montante convertido; nunca substituir o valor original.
+
+
+
+
+                        Documento de trabalho para desenvolvimento • Versão 1.0 • Página 14
+                                                                         SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+FIN-003 | Taxas de câmbio [Obrigatório] Taxa automática externa, manual ou tabela de viagem deve ter
+origem explícita. Uma taxa manual exige permissão e motivo; alterações posteriores devem ficar auditadas. Não
+presumir acesso a uma API gratuita ou taxa oficial sem validação.
+
+FIN-004 | Precisão e arredondamento [Obrigatório] Definir precisão de moeda por código e regra de
+arredondamento. Usar tipos decimais adequados no backend/base de dados, não aritmética binária de ponto
+flutuante para saldos financeiros.
+
+FIN-005 | Per diem multimoeda [Obrigatório] Suportar adiantamentos e ajudas de custo por país e moeda,
+duração e política, com cálculo legível e histórico de regras usadas.
+
+9.2 Controlo de despesas e orçamento
+FIN-010 | Orçamento versus realizado [Obrigatório] Apresentar orçamento autorizado, pendente, aprovado
+e total realizado por viagem e categoria. Distinguir valores submetidos ainda não aprovados de valores
+confirmados.
+
+FIN-011 | Alertas de orçamento [Obrigatório] Alertar quando a despesa atinge percentagens configuráveis
+(por exemplo, 80%, 100% ou limite superior definido) e quando uma despesa excede o orçamento disponível.
+
+FIN-012 | Aprovação por alçada [Obrigatório] Permitir regras por valor, categoria, filial, moeda ou excepção;
+por exemplo, aprovação adicional acima de um limite configurável. A tabela de alçadas é da empresa, não fixa
+no código.
+
+FIN-013 | Fila de trabalho [Obrigatório] O painel financeiro deve oferecer filtros por pendente, devolvida,
+sem talão, moeda, viagem, motorista, data, alerta de duplicado e desvio orçamental.
+
+FIN-014 | Motivos de rejeição [Obrigatório] A rejeição deve exigir categoria de motivo e nota explicativa;
+notificar o motorista quando aplicável. A despesa original permanece para auditoria.
+
+FIN-015 | Fecho financeiro [Obrigatório] Gerar resumo de adiantamentos, despesas aprovadas por moeda,
+conversões, saldo a devolver/reembolsar, desvios, despesas rejeitadas e pendências. Impedir fecho total
+enquanto existirem pendências críticas, salvo regra controlada documentada.
+
+FIN-016 | Reconciliação e estorno [Obrigatório] Permitir reconciliação, estorno e reclassificação com
+referência ao lançamento original, sem apagar histórico e sem alterar silenciosamente relatórios anteriores.
+
+9.3 Integridade documental e prevenção de abuso
+   Guardar comprovativos originais e versões comprimidas, com hash ou mecanismo de integridade e
+    ligação ao registo de despesa.
+   Analisar duplicados exactos e potenciais, mas deixar decisão final a um aprovador autorizado quando
+    existir ambiguidade.
+   Assinalar despesas em localização incompatível com o percurso, local muito distante, data/hora
+    implausível, despesas após fecho ou padrões invulgares, sem classificar automaticamente uma pessoa
+    como fraudulenta.
+   Preservar metadados úteis da captura, como hora local, hora do servidor, localização disponível,
+    precisão e fonte. Metadados de fotografia podem ser removidos na compressão; os dados relevantes
+    devem ser guardados explicitamente no registo.
+   Limitar exportação de comprovativos, registar exportações sensíveis e aplicar permissões a
+    pastas/ficheiros, não apenas ao ecrã que os apresenta.
+   Permitir auditoria de despesas submetidas sem internet, mostrando diferença entre a hora de captura
+    no dispositivo e a hora de sincronização no servidor.
+
+
+10. MANUTENÇÃO, PNEUS, COMBUSTÍVEL E DOCUMENTOS
+10.1 Manutenção preventiva e correctiva
+MNT-001 | Plano por veículo [Obrigatório] Configurar intervalos por quilometragem, tempo, horas de motor
+quando disponíveis, tipo de serviço ou combinação: óleo, filtros, travões, pneus, suspensão, arrefecimento,
+transmissão e inspecções.
+
+
+                        Documento de trabalho para desenvolvimento • Versão 1.0 • Página 15
+                                                                         SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+MNT-002 | Alertas antecipados [Obrigatório] Gerar alertas antes do limite e no vencimento, com limiares
+configuráveis. A quilometragem estimada nunca substitui a leitura real quando exigida pela política.
+
+MNT-003 | Ordens de serviço [Obrigatório] Criar ordem de serviço com veículo, sintoma, diagnóstico,
+prioridade, oficina, datas, mão-de-obra, peças, custos, notas e anexos. Ligar a incidentes e viagens relacionados.
+
+MNT-004 | Bloqueio de segurança [Obrigatório] Permitir classificar avaria/manutenção como crítica e
+bloquear a atribuição de nova viagem até liberação autorizada. Conservar autor e prova da liberação.
+
+MNT-005 | Histórico e custo [Obrigatório] Manter histórico imutável de serviços, despesas, fornecedor,
+quilometragem e próxima data/quilometragem prevista.
+
+10.2 Pneus e peças (capacidade recomendada)
+MNT-010 | Cadastro de pneus [Obrigatório] Permitir, quando activado, marca, modelo, medida,
+número/serial, posição no veículo, data de instalação, quilometragem inicial, estado e histórico de rotação,
+reparação e substituição.
+
+MNT-011 | Stock de peças [Obrigatório] Possibilitar catálogo de peças, entradas, saídas para ordem de
+serviço, níveis mínimos, fornecedor, custo e histórico. Pode ser entregue em fase posterior, mas o modelo de
+manutenção deve permitir expansão sem migração destrutiva.
+
+10.3 Combustível e consumo
+FUEL-001 | Registo de abastecimento [Obrigatório] Ligar cada abastecimento à viagem e veículo, com litros,
+montante, preço unitário, combustível, local, data/hora, quilometragem, comprovativo e utilizador responsável.
+
+FUEL-002 | Consumo esperado versus real [Obrigatório] Calcular consumo usando distância e litros,
+considerando a política de tanque cheio/parcial e a qualidade da quilometragem. Mostrar pressupostos do
+cálculo e não produzir indicadores fiáveis quando os dados estiverem incompletos.
+
+FUEL-003 | Anomalias [Obrigatório] Alertar para litros acima da capacidade plausível, preço fora de intervalo
+definido, abastecimentos próximos, quilometragem inconsistente ou consumo muito diferente do histórico,
+mantendo revisão humana.
+
+FUEL-004 | Reconciliação do tanque [Obrigatório] Permitir registar nível inicial/final estimado ou
+observado, capacidade do tanque e abastecimentos; deixar claro quando o nível vem de declaração manual e
+não de sensor.
+
+10.4 Documentos e vencimentos
+DOC-001 | Repositório de documentos [Obrigatório] Guardar documentos de empresa, veículo, motorista,
+reboque, carga e viagem com tipo, número, país emissor, datas, ficheiro, estado, responsável e vínculo aos
+registos relevantes.
+
+DOC-002 | Alertas de vencimento [Obrigatório] Enviar alertas com antecedência configurável e escalar
+documentos vencidos. Permitir bloquear viagem quando o documento estiver marcado como obrigatório para
+aquela rota/país.
+
+DOC-003 | Documentação de fronteira [Obrigatório] Permitir lista configurável de documentos de
+transporte, alfândega, carga, seguro e autorizações por rota/país. A aplicação não deve afirmar que uma lista é
+legalmente completa sem validação de especialista local.
+
+
+11. REQUISITOS DE INTERFACE E EXPERIÊNCIA DE UTILIZAÇÃO
+11.1 Painel Web do escritório
+   Dashboard inicial com viagens activas, camiões em trânsito, última comunicação GPS, alertas críticos,
+    despesas pendentes, manutenção vencida e documentos a expirar.
+   Mapa com filtros por empresa/filial, estado, veículo, motorista, viagem e data; cada marcador deve
+    expor timestamp e fonte do último ponto.
+   Tabelas com pesquisa, filtros, ordenação, paginação, estados claros, acções em lote somente quando
+    seguras e exportação sujeita a permissões.
+
+
+                        Documento de trabalho para desenvolvimento • Versão 1.0 • Página 16
+                                                                        SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+   Formulários com labels, mensagens de validação accionáveis, confirmação para operações destrutivas
+    e prevenção de cliques repetidos.
+   Relatórios com filtros persistidos e definição clara do intervalo de datas, fuso, moeda e estados
+    incluídos.
+   Layout responsivo para computador e tablet, com navegação consistente e sem sobreposição de
+    menus, tabelas ou janelas modais.
+
+11.2 Aplicação do motorista
+   Tela inicial centrada na viagem activa, com estado da viagem, destino seguinte, fila de sincronização e
+    alerta do que precisa de atenção.
+   Acção rápida para despesa, fotografia do talão, incidente, checkpoint, checklist e SOS quando
+    aprovado pela empresa.
+   Campos numéricos adequados a valores e litros; teclado apropriado; validação local e repetição
+    simples da fotografia.
+   Indicação de GPS e rede sem mensagens alarmistas confusas: “GPS disponível”, “sem fixação”, “sem
+    internet - dados guardados” ou equivalentes precisos.
+   Confirmação visual de registo local e de submissão ao servidor para o motorista não pensar que uma
+    despesa foi enviada quando ainda está pendente.
+   Conteúdo mínimo disponível sem rede e protecção de dados sensíveis no ecrã bloqueado.
+
+11.3 Acessibilidade, idioma e formatação
+UX-001 | Idioma [Obrigatório] Português de Moçambique como idioma inicial; preparar internacionalização
+para inglês. Datas, moeda, separador decimal e fuso devem ser configuráveis sem alterar o valor armazenado.
+
+UX-002 | Acessibilidade [Obrigatório] Contraste adequado, foco de teclado, labels claros, mensagens que não
+dependem só de cor, áreas de toque suficientes e compatibilidade razoável com leitores de ecrã nas funções
+essenciais.
+
+UX-003 | Estados visíveis [Obrigatório] Diferenciar visualmente acções concluídas, pendentes, bloqueadas,
+em erro, sincronizadas e sujeitas a aprovação.
+
+UX-004 | Confirmação segura [Obrigatório] Operações irreversíveis ou críticas exigem confirmação
+contextual; operações financeiras exigem resumo do impacto e razão quando aplicável.
+
+
+12. REQUISITOS NÃO FUNCIONAIS, SEGURANÇA E PRIVACIDADE
+12.1 Desempenho e disponibilidade
+NFR-001 | Desempenho de interface [Obrigatório] Como objectivo inicial, 95% das consultas de
+listas/dashboards comuns devem responder em até 3 segundos sob carga nominal acordada, sem contar serviços
+externos lentos. Medir e registar os resultados em teste.
+
+NFR-002 | Disponibilidade [Obrigatório] Definir objectivo inicial de 99,5% de disponibilidade mensal para o
+serviço central, excluindo manutenção anunciada e falhas comprovadamente externas, com monitorização e
+registo de incidentes. Rever após decisão do fornecedor de alojamento.
+
+NFR-003 | Escalabilidade [Obrigatório] Suportar aumento de empresas, utilizadores, veículos, pontos GPS,
+fotografias e relatórios sem depender de consultas completas não indexadas. Testar com volume representativo
+e documentar o limite observado.
+
+NFR-004 | Paginação e indexação [Obrigatório] Usar paginação, filtros no servidor e índices para campos
+consultados frequentemente. Não carregar todo o histórico GPS ou todas as imagens de uma só vez no
+navegador.
+
+
+
+
+                       Documento de trabalho para desenvolvimento • Versão 1.0 • Página 17
+                                                                         SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+12.2 Segurança da aplicação
+SEC-001 | HTTPS obrigatório [Obrigatório] Toda a comunicação cliente-servidor deve usar HTTPS/TLS. A
+geolocalização do navegador exige contexto seguro nos navegadores comuns; produção não deve operar em
+HTTP simples.
+
+SEC-002 | Autenticação robusta [Obrigatório] Aplicar política de palavras-passe, sessões de curta duração
+adequadas, revogação, recuperação segura e MFA para administradores e utilizadores com poder financeiro,
+sempre que tecnicamente possível.
+
+SEC-003 | Autorização no servidor [Obrigatório] Validar cada operação com base em identidade, função,
+empresa/filial, relação com a viagem e estado do registo. Testar tentativas de acesso por alteração directa de IDs.
+
+SEC-004 | Isolamento multiempresa [Obrigatório] Aplicar controlos consistentes na camada de dados (por
+exemplo, Row Level Security quando a plataforma usa PostgreSQL/Supabase), APIs, armazenamento de ficheiros
+e relatórios. Não confiar apenas em filtros do frontend.
+
+SEC-005 | Protecção de credenciais [Obrigatório] Guardar segredos em variáveis de ambiente/gestor de
+segredos; rotacionar credenciais expostas; não incluir chaves privilegiadas em frontend, ficheiros públicos ou
+logs.
+
+SEC-006 | Validação de entradas [Obrigatório] Validar tipos, limites, formatos e permissões no servidor.
+Prevenir injection, XSS, CSRF quando aplicável, abuso de upload, acesso directo a ficheiros e execução de
+conteúdo enviado.
+
+SEC-007 | Ficheiros seguros [Obrigatório] Validar tamanho, extensão e tipo real do ficheiro; usar nomes
+internos aleatórios, armazenamento privado, URLs de acesso temporárias quando necessário,
+antivírus/varrimento quando disponível e controlo de autorização em cada download.
+
+SEC-008 | Limitação de abuso [Obrigatório] Aplicar rate limiting a autenticação, envio GPS, upload,
+exportação e endpoints de maior risco; detectar tentativas repetidas e proteger contra reenvio abusivo.
+
+SEC-009 | Auditoria de segurança [Obrigatório] Registar alterações de utilizadores, permissões, parâmetros
+financeiros, decisões de despesas, fechos, exports, alterações GPS e acesso administrativo excepcional. Logs não
+devem conter palavras-passe, tokens ou dados desnecessários.
+
+SEC-010 | Verificação de dependências [Obrigatório] Controlar dependências, corrigir vulnerabilidades
+relevantes, rever permissões e executar análise de segurança antes de produção. Usar OWASP ASVS 5.0.0 como
+referência verificável para a aplicação Web/API.
+
+12.3 Privacidade e governação de dados
+PRV-001 | Finalidade e transparência [Obrigatório] Documentar a finalidade de recolha da localização de
+veículos/motoristas, categorias de dados, destinatários, retenção e utilizadores com acesso. Informar motoristas
+conforme política e legislação aplicável.
+
+PRV-002 | Minimização [Obrigatório] Recolher apenas os dados pessoais e localização necessários à operação,
+segurança, prestação de contas e requisitos aprovados. Diferenciar rastreio empresarial do veículo e localização
+pessoal fora de serviço.
+
+PRV-003 | Acesso proporcional [Obrigatório] Restringir a visualização do histórico de localização e contactos
+pessoais às funções com necessidade operacional. Acesso excepcional deve ser justificado e auditado.
+
+PRV-004 | Retenção e eliminação [Obrigatório] Configurar prazos por classe de dado (telemetria, despesas,
+documentos, auditoria). Expirar ou anonimizar dados quando permitido, preservando retenções
+legais/contabilísticas e litígios autorizados.
+
+PRV-005 | Exportação e incidentes [Obrigatório] Ter processo para exportar dados de uma empresa de
+forma segura, revogar acessos, responder a incidente de segurança e avaliar eventual notificação exigida pela
+legislação aplicável.
+
+PRV-006 | Residência e transferência [Obrigatório] A localização de alojamento, backups e fornecedores
+externos deve ser avaliada quanto a transferências internacionais de dados, contratos e obrigações legais locais
+antes da produção.
+
+
+
+                        Documento de trabalho para desenvolvimento • Versão 1.0 • Página 18
+                                                                            SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+12.4 Cópias de segurança e recuperação
+OPS-001 | Backups [Obrigatório] Definir cópias de segurança automáticas, encriptadas e com acesso segregado
+para base de dados e ficheiros. Documentar frequência, retenção, local e responsável.
+
+OPS-002 | Testes de restauro [Obrigatório] Testar restauro em ambiente controlado, não apenas verificar
+que existe um ficheiro de backup. Guardar evidência do resultado.
+
+OPS-003 | Metas de recuperação [Obrigatório] Proposta inicial: RPO até 24 horas e RTO até 8 horas para
+serviço central, sujeito a validação do negócio/fornecedor. Se o risco de perda ou tempo de paragem for
+inaceitável, adoptar plano de backup/replicação mais frequente e ajustar custos.
+
+OPS-004 | Monitorização [Obrigatório] Monitorizar erros de servidor, falhas de sincronização, estado das
+integrações GPS, fila de eventos, armazenamento, latência, utilização, backups e falhas de entrega de
+notificações.
+
+OPS-005 | Plano de incidente [Obrigatório] Documentar procedimento para falha do GPS, falha do
+fornecedor, comprometimento de credenciais, exposição de dados, interrupção de rede e perda de telemóvel de
+motorista.
+
+12.5 Compatibilidade e continuidade
+NFR-010 | Navegadores suportados [Obrigatório] Definir e testar versões suportadas dos navegadores
+Chrome/Edge/Safari e sistemas Android/iOS em uso no negócio. Não declarar suporte universal sem teste.
+
+NFR-011 | Condições de rede [Obrigatório] A operação deve tolerar latência elevada, ligação intermitente,
+perda de pacotes e ausência prolongada de rede nas funções offline especificadas.
+
+NFR-012 | Fuso horário [Obrigatório] Guardar timestamps inequívocos e mostrar o fuso de referência.
+Eventos do veículo devem preservar timestamp original, timestamp de recepção e eventual desvio do relógio do
+dispositivo.
+
+NFR-013 | Registos técnicos [Obrigatório] Logs operacionais devem ser pesquisáveis por identificador de
+viagem/evento e mascarar dados sensíveis. Não gravar coordenadas ou contactos em logs gerais sem
+necessidade.
+
+
+13. MODELO DE DADOS DE REFERÊNCIA
+A lista abaixo representa as entidades de negócio mínimas. A implementação pode normalizar, separar ou
+acrescentar tabelas segundo a arquitectura, mas não deve perder relações, histórico, isolamento por
+empresa ou rastreabilidade.
+
+ Entidade                                                  Campos / relações essenciais
+
+                                                           id, nome, moeda-base, fuso, estado, política, idioma, retenção,
+ Empresa / Tenant
+                                                           parâmetros.
+
+ Filial / Base                                             id, empresa_id, nome, morada, geofence opcional, estado.
+
+                                                           id, empresa_id ou escopo global controlado, identidade,
+ Utilizador
+                                                           autenticação, estado, MFA, último acesso.
+
+                                                           roles, permissões por recurso/ação, associação por utilizador e
+ Perfil / Permissão
+                                                           empresa/filial.
+
+                                                           empresa_id, matrícula normalizada, VIN, características, tanque,
+ Veículo
+                                                           odómetro, estado e documentação.
+
+                                                           empresa_id, código, dados mínimos pessoais, licença/categoria,
+ Motorista
+                                                           validades, estado e documentos.
+
+                                                           empresa_id, matrícula/serial, capacidade, documentos, histórico
+ Reboque / Equipamento
+                                                           de associação.
+
+                                                           serial/IMEI, fornecedor, protocolo, SIM, configuração, associação
+ Dispositivo GPS
+                                                           temporal ao veículo, estado e versão.
+
+
+
+
+                         Documento de trabalho para desenvolvimento • Versão 1.0 • Página 19
+                                                                                    SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+    Entidade                                                      Campos / relações essenciais
+
+                                                                  veículo_id, dispositivo_id, viagem_id, latitude, longitude,
+    Ponto GPS                                                     velocidade, rumo, precisão, hora GNSS, hora recepção, fonte,
+                                                                  sequência, flags qualidade.
+
+                                                                  empresa_id, código, cliente, origem/destino, rota planeada,
+    Viagem
+                                                                  motorista(s), veículo, reboque, estados, orçamento e timestamps.
+
+                                                                  viagem_id, tipo, autor/fonte, localização, timestamp original,
+    Evento de viagem
+                                                                  timestamp servidor, nota, anexos.
+
+                                                                  viagem_id, autor, categoria, valor original, moeda, taxa, valor-
+    Despesa
+                                                                  base, estado, aprovação, localização e timestamps.
+
+                                                                  despesa_id/incidente_id, caminho privado, hash, tipo, tamanho,
+    Comprovativo
+                                                                  hora de captura, estado de upload.
+
+                                                                  viagem_id, motorista, montante, moeda, regra aplicada,
+    Adiantamento / Per diem
+                                                                  autorizador, liquidação.
+
+                                                                  viagem_id, categoria, moeda, valor autorizado, limites, versão e
+    Orçamento / Linha
+                                                                  aprovador.
+
+                                                                  veículo_id, motivo, prioridade, datas, odómetro, tarefas, peças,
+    Manutenção / Ordem de serviço
+                                                                  custos, oficina e fecho.
+
+                                                                  veículo/posição, serial, montagem, quilometragem, inspecções,
+    Pneu / Movimento de stock
+                                                                  movimentos, custo.
+
+                                                                  entidade ligada, tipo, número, país, datas, caminho privado,
+    Documento
+                                                                  estado, regras de obrigatoriedade.
+
+                                                                  tipo, gravidade, objecto, destinatário, canal, estado, tentativas,
+    Alerta / Notificação
+                                                                  timestamp.
+
+                                                                  empresa_id, utilizador/serviço, acção, entidade, entidade_id,
+    Auditoria                                                     antes/depois, motivo, IP/dispositivo quando apropriado,
+                                                                  timestamp.
+
+                                                                  UUID/idempotency key, tipo de evento, origem, timestamp
+    Fila de sincronização
+                                                                  dispositivo, estado, tentativas, erro e ACK do servidor.
+
+    Taxa de câmbio                                                moeda origem/destino, taxa, data, fonte, autor/approver, versão.
+
+
+
+
+13.1 Integridade e relações
+      Aplicar chaves estrangeiras, restrições únicas e validações coerentes, incluindo prevenção de duas
+       viagens activas para o mesmo recurso quando o caso de negócio não o permite.
+      Usar UUID ou identificadores globalmente únicos para eventos criados offline, de modo a sincronizar
+       registos sem colisão entre dispositivos.
+      Manter históricos temporais quando a relação muda (por exemplo, rastreador associado a um camião,
+       motorista atribuído à viagem, taxa de câmbio aplicada).
+      Guardar documentos e fotografias em armazenamento de objectos privado; a base de dados guarda
+       metadados e ligações seguras, não conteúdo binário ilimitado em campos comuns.
+      Criar índices para empresa, matrícula normalizada, código da viagem, estados, datas,
+       veículo/dispositivo, timestamp GPS e chaves usadas em auditoria e relatórios.
+      Executar migrações versionadas e reversíveis quando possível; fazer backup antes de migrações
+       destrutivas e nunca apagar tabelas/colunas com dados sem plano aprovado.
+
+
+
+
+                                Documento de trabalho para desenvolvimento • Versão 1.0 • Página 20
+                                                                          SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+14. ARQUITECTURA, INTEGRAÇÕES E DECISÕES DE
+IMPLEMENTAÇÃO
+14.1 Arquitectura lógica recomendada
+Separar as seguintes camadas, mesmo que a tecnologia concreta seja escolhida depois da inspecção do
+repositório:
+   Interface Web de escritório: dashboards, mapas, gestão de frota, planeamento, aprovação financeira e
+    relatórios.
+   Interface móvel do motorista: PWA/app complementar, armazenamento local, captura de imagens,
+    checklist e sincronização.
+   API e regras de negócio: autenticação/autorização, validação, transições de estado, orçamentos,
+    aprovação, idempotência e auditoria.
+   Base de dados relacional: entidades operacionais, transacções, permissões, histórico e metadados, com
+    índices e políticas de isolamento.
+   Armazenamento de ficheiros: talões, documentos, fotografias, anexos, com acesso privado e retenção
+    definida.
+   Ingestão GPS: adaptadores para fornecedor, validação, normalização, fila de eventos, deduplicação,
+    telemetria e alertas.
+   Camada de notificações: notificações in-app e conectores opcionais para e-mail/SMS/WhatsApp
+    conforme fornecedor e consentimento/configuração.
+   Observabilidade: logs estruturados, métricas, alertas técnicos, monitorização de filas, backups e
+    rastreabilidade de erros.
+
+14.2 Escolha da tecnologia
+ARC-001 | Não escolher stack às cegas [Obrigatório] Inspeccionar o projecto/repositório actual antes de
+escolher framework, base de dados, autenticação, alojamento e serviços. Se não houver sistema existente,
+recomendar arquitectura com base no custo de operação, disponibilidade, segurança e competências de
+manutenção.
+
+ARC-002 | Separar domínio de fornecedores [Obrigatório] GPS, mapas, notificações, armazenamento e
+câmbio devem ser abstraídos por interfaces/adaptadores. A indisponibilidade de um fornecedor não deve
+bloquear todos os módulos de gestão.
+
+ARC-003 | Filas e eventos [Obrigatório] Para ingestão GPS, uploads e notificações, usar mecanismo de
+fila/retentativa adequado ao volume. Eventos devem ter chave idempotente, estado, tentativas e erro
+recuperável.
+
+ARC-004 | Mapas e licenças [Obrigatório] Escolher fornecedor de cartografia e rotas cujos termos permitem o
+uso comercial, atribuição necessária, volume esperado e armazenamento offline, se exigido. Não usar tiles de
+um serviço público contra a política do fornecedor.
+
+ARC-005 | Integração GPS homologada [Obrigatório] Antes de escolher dispositivo, obter documentação do
+protocolo, frequências, cobertura, método de autenticação, custos de SIM/roaming, memória offline, bateria de
+reserva e condições de suporte. Construir testes de conformidade contra o hardware real.
+
+ARC-006 | Ambiente de homologação [Obrigatório] Ter ambiente de desenvolvimento/teste com dados
+sintéticos identificados, dispositivos de teste, credenciais separadas e sem acesso livre a produção.
+
+14.3 API e contratos de integração
+   Usar formatos e contratos documentados, validação consistente e versão de API quando necessário.
+   Autenticar dispositivos GPS com credenciais específicas, não com contas pessoais de utilizador.
+    Permitir rotação e revogação de credenciais por dispositivo.
+   Validar assinatura/identidade da origem de eventos quando o protocolo permitir; descartar eventos
+    claramente inválidos e registar motivo sem expor segredos.
+
+
+
+                        Documento de trabalho para desenvolvimento • Versão 1.0 • Página 21
+                                                                             SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+      Usar timestamps explícitos, identificador do dispositivo, sequência e idempotency key para proteger
+       contra repetição e ordenação irregular.
+      Aplicar rate limiting, validação de payload, tamanho máximo e métricas à ingestão GPS para resistir a
+       equipamento defeituoso ou tráfego inesperado.
+      Documentar exemplos de payloads, códigos de erro, processo de reprocessamento e como testar uma
+       integração sem criar posição falsa em produção.
+
+
+15. RELATÓRIOS, INDICADORES E ALERTAS
+15.1 Dashboards mínimos
+      Frota por estado: disponível, planeado, trânsito, manutenção, inactivo e bloqueado.
+      Viagens activas com último ponto GPS, idade do ponto, trajecto, ETA aproximada quando disponível,
+       paragens e alertas.
+      Despesas por estado, categoria, viagem, motorista, período, moeda e desvio do orçamento.
+      Combustível: litros, custo, preço médio por litro, consumo estimado, distância e anomalias com
+       qualidade dos dados.
+      Manutenção: intervenções próximas, vencidas, custos por veículo e dias de indisponibilidade.
+      Documentos: vencidos, a expirar e bloqueios de elegibilidade.
+      Sincronização: registos pendentes por motorista/dispositivo, última sincronização e erros que exigem
+       atenção.
+      Indicadores operacionais: duração de viagem, tempo em fronteira/paragem, atraso face ao planeado,
+       percentagem de despesas comprovadas e custo por km, quando os dados permitem.
+
+15.2 Alertas por gravidade
+    Gravidade                           Exemplos                                   Tratamento
+
+                                        Carregador obrigatório ausente antes de
+                                        partida; documento de bloqueio expirado;   Visível imediatamente; impedir acção
+    Crítico                             manutenção crítica; possível acesso não    bloqueada; notificar responsáveis
+                                        autorizado; rastreador sem alimentação     definidos; exigir resolução e registo.
+                                        quando confirmado.
+
+                                        Desvio relevante de rota, paragem
+                                                                                   Notificar operações/gestor; permitir
+                                        prolongada, despesa acima de limite,
+    Alto                                                                           reconhecer, comentar e encerrar com
+                                        interrupção GPS prolongada em viagem
+                                                                                   motivo.
+                                        activa.
+
+                                        Manutenção próxima, documento a
+                                                                                   Aparecer na fila de trabalho e dashboard;
+    Médio                               expirar, sincronização atrasada,
+                                                                                   escalar se não tratado.
+                                        duplicado potencial.
+
+                                        Chegada a geofence, checkpoint,
+                                                                                   Registar no histórico; notificação
+    Informativo                         início/fim de pausa, sincronização
+                                                                                   conforme preferências.
+                                        concluída.
+
+
+
+
+15.3 Regras de fiabilidade dos indicadores
+Todo o indicador deve indicar período, unidade, moeda, filtros e fontes. Custo por quilómetro não deve ser
+calculado quando faltam despesas ou quilometragem; consumo não deve ser apresentado como “real” se o
+método for estimado; tempo sem GPS não deve ser contado como tempo parado; valores pendentes não
+devem ser somados como despesas aprovadas sem distinção.
+
+
+16. TESTES, CRITÉRIOS DE ACEITAÇÃO E DEFINIÇÃO DE CONCLUÍDO
+Os critérios abaixo devem ser transformados em testes automáticos e/ou procedimentos manuais com
+resultado registado. Testes críticos devem ser executados antes da publicação em produção.
+
+
+
+
+                         Documento de trabalho para desenvolvimento • Versão 1.0 • Página 22
+                                                                     SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+16.1 Critérios de aceitação prioritários
+ ID                                Cenário                                Resultado esperado
+
+                                                                          Um utilizador de Empresa A não consegue
+                                                                          consultar, alterar, exportar ou obter
+                                                                          ficheiros de Empresa B, mesmo alterando
+ AT-001                            Isolamento de empresas
+                                                                          IDs, URLs ou pedidos à API. Resultado
+                                                                          esperado: acesso negado e evento
+                                                                          apropriado.
+
+                                                                          Um motorista apenas vê a sua viagem
+                                                                          atribuída e não consegue aprovar a própria
+ AT-002                            Permissões do motorista                despesa, alterar o orçamento, escolher outra
+                                                                          viagem nem abrir a ficha financeira de
+                                                                          terceiros.
+
+                                                                          Se o item “carregador de telemóvel
+                                                                          funcional” estiver ausente ou reprovado na
+ AT-003                            Bloqueio do carregador
+                                                                          checklist, não é possível autorizar a partida.
+                                                                          O sistema regista o motivo do bloqueio.
+
+                                                                          Com telemóvel bloqueado e PWA fechada, o
+                                                                          rastreador instalado continua a
+ AT-004                            GPS independente
+                                                                          obter/guardar pontos. Quando há rede,
+                                                                          transmite-os sem intervenção do motorista.
+
+                                                                          Ao remover conectividade de dados
+                                                                          mantendo o sinal GNSS, o rastreador guarda
+ AT-005                            GPS sem internet                       pontos localmente. Depois de restaurar rede,
+                                                                          sincroniza os pontos com timestamps
+                                                                          originais sem duplicação.
+
+                                                                          Quando não chega posição no limiar
+                                                                          configurado, o mapa marca a posição como
+ AT-006                            Indicador de telemetria antiga         antiga/sem comunicação e mostra a hora do
+                                                                          último ponto; não a apresenta como
+                                                                          localização em tempo real.
+
+                                                                          Quando o equipamento suporta detecção de
+                                                                          alimentação, desligar a alimentação
+ AT-007                            Desligamento de alimentação
+                                                                          principal gera evento de energia/backup,
+                                                                          conforme capacidades homologadas.
+
+                                                                          Sem rede, o motorista regista despesa,
+                                                                          moeda, valor, nota e foto; a aplicação mostra
+ AT-008                            Despesa offline
+                                                                          que o registo está guardado localmente e
+                                                                          pendente de envio.
+
+                                                                          Repetir o envio do mesmo UUID 3 ou mais
+ AT-009                            Sincronização idempotente              vezes cria apenas um registo financeiro no
+                                                                          servidor.
+
+                                                                          Fechar ou reiniciar o navegador depois de
+                                                                          guardar uma despesa offline não apaga o
+ AT-010                            Recuperação da aplicação
+                                                                          registo; este volta a aparecer na fila depois
+                                                                          de reabrir a aplicação.
+
+                                                                          A fotografia é reduzida antes do envio
+                                                                          segundo política configurável e mantém
+                                                                          legibilidade suficiente do
+ AT-011                            Fotografia comprimida
+                                                                          valor/data/estabelecimento. A imagem
+                                                                          original ou derivada preservada segue a
+                                                                          política definida.
+
+                                                                          Despesa submetida fica pendente; aprovador
+                                                                          autorizado aprova/rejeita com trilha;
+ AT-012                            Aprovação de despesa
+                                                                          rejeição exige motivo e notifica o motorista
+                                                                          quando a ligação regressa.
+
+                                                                          Despesa em ZAR/USD/ZWG conserva
+                                                                          montante original e taxa aplicada; conversão
+ AT-013                            Taxa de câmbio
+                                                                          em MZN é reproduzível a partir dos dados
+                                                                          registados.
+
+
+
+
+                    Documento de trabalho para desenvolvimento • Versão 1.0 • Página 23
+                                                                            SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+    ID                                    Cenário                                Resultado esperado
+
+                                                                                 Despesa aprovada não pode ser alterada ou
+                                                                                 eliminada sem fluxo autorizado que
+    AT-014                                Sem alteração silenciosa
+                                                                                 preserve valor anterior, autor, motivo e
+                                                                                 referência ao estorno/correcção.
+
+                                                                                 Submeter fotografia/valor/data semelhantes
+                                                                                 a despesa existente gera aviso de possível
+    AT-015                                Duplicado potencial
+                                                                                 duplicado sem eliminar automaticamente a
+                                                                                 prova ou a submissão original.
+
+                                                                                 Não é possível atribuir um camião já
+                                                                                 reservado/em viagem a outra viagem
+    AT-016                                Conflito de veículo
+                                                                                 sobreposta sem regra autorizada; a aplicação
+                                                                                 explica o conflito.
+
+                                                                                 Um documento definido como bloqueante e
+                                                                                 expirado impede autorização de partida,
+    AT-017                                Documento expirado
+                                                                                 apresentando qual documento é necessário
+                                                                                 actualizar.
+
+                                                                                 Veículo com bloqueio de manutenção crítica
+                                                                                 não pode ser despachado até ao
+    AT-018                                Manutenção crítica
+                                                                                 fecho/libertação autorizada da ordem de
+                                                                                 serviço.
+
+                                                                                 Alterar rota, aprovar despesa, alterar taxa de
+                                                                                 câmbio, reatribuir veículo e fechar viagem
+    AT-019                                Auditoria
+                                                                                 gera evento de auditoria com autor, data,
+                                                                                 entidade e alteração pertinente.
+
+                                                                                 Restaurar backup em ambiente de teste
+    AT-020                                Restauro de backup                     recupera registos operacionais e referências
+                                                                                 a ficheiros segundo o RPO/RTO aprovado.
+
+                                                                                 Quando a rede móvel falta mas o
+                                                                                 equipamento continua operacional e a
+    AT-021                                Sem sinal versus avaria                guardar localmente, a interface não
+                                                                                 classifica automaticamente o camião como
+                                                                                 avariado.
+
+                                                                                 A função de mapa offline utiliza
+                                                                                 fornecedor/dados cuja licença autoriza a
+    AT-022                                Mapa offline legal
+                                                                                 cache/download; a aplicação inclui
+                                                                                 atribuição e avisos exigidos pela fonte.
+
+                                                                                 O fecho não fica completo se existirem
+                                                                                 campos/pêndencias definidos como críticos;
+    AT-023                                Fecho de viagem
+                                                                                 quando permitido, a excepção exige
+                                                                                 autorização, motivo e auditoria.
+
+                                                                                 Exportar dados financeiros ou localização
+                                                                                 respeita permissões, filtros e empresa; a
+    AT-024                                Exportação autorizada
+                                                                                 exportação fica registada e o ficheiro não é
+                                                                                 público por defeito.
+
+                                                                                 Testar em pelo menos um Android de
+                                                                                 referência e um iPhone/iOS de referência;
+    AT-025                                Teste em dispositivos reais            documentar funcionamento offline,
+                                                                                 permissões, fotos, armazenamento e limites
+                                                                                 de segundo plano.
+
+
+
+
+16.2 Testes adicionais obrigatórios
+        Testes unitários das regras de orçamento, estados, arredondamento, permissões, geofences e
+         idempotência.
+        Testes de integração da API, base de dados, armazenamento privado e ingestão GPS com payloads
+         válidos, inválidos, duplicados e atrasados.
+        Testes de falha de rede no upload de imagens, com retoma e sem gerar ficheiros órfãos nem despesas
+         duplicadas.
+
+
+
+
+                           Documento de trabalho para desenvolvimento • Versão 1.0 • Página 24
+                                                                                         SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+      Testes de autorização directa por URL/ID, SQL injection/XSS aplicáveis, sessão expirada, revogação de
+       dispositivo e abuso de upload/exportação.
+      Testes de desempenho com dados de volume representativo, incluindo muitos pontos GPS por veículo
+       e consultas históricas.
+      Testes visuais em ecrãs pequenos, tablet e computador, com foco em legibilidade, navegação, erros,
+       tabelas e formulários.
+      Teste de que nenhum relatório mistura despesas pendentes com aprovadas sem os distinguir, e
+       nenhum indicador mascara dados em falta.
+
+16.3 Definição de concluído (Definition of Done)
+      Requisito mapeado para implementação e teste; sem requisito crítico ignorado ou substituído por
+       simulador.
+      Migrações versionadas e validadas em ambiente de teste; políticas de acesso e índices verificados.
+      Fluxo completo testado desde a interface até ao backend/base de dados/armazenamento e de volta à
+       interface.
+      Erros de validação e falhas de rede são tratados de forma explícita; os dados não desaparecem
+       silenciosamente.
+      Testes automáticos relevantes passam; falhas conhecidas são documentadas com severidade e plano
+       de resolução.
+      Interface confirmada em ecrãs suportados; botões e acções implementados funcionam; sem links
+       fictícios.
+      Documentação e manual actualizados; instruções de deployment/recovery testadas; credenciais e
+       segredos tratados de forma segura.
+      Qualquer limitação externa (hardware, mapa, SMS, roaming, permissões do sistema) está
+       documentada sem falsa promessa de funcionamento.
+
+
+17. PLANO DE IMPLEMENTAÇÃO POR FASES
+A divisão por fases serve para controlar risco e facilitar a validação; não autoriza deixar requisitos
+obrigatórios fora do produto final. Dependências de hardware podem exigir homologação em paralelo,
+mas devem ser registadas e não disfarçadas com dados falsos.
+
+    Fase                                         Conteúdo                                      Condição de saída
+
+                                                 Revisão do repositório, regras de negócio,
+                                                                                               Decisões registadas; riscos conhecidos;
+    Fase 0 - Descoberta e desenho                arquitectura/modelo de dados, protótipos,
+                                                                                               matriz de requisitos e testes preparada.
+                                                 permissões e plano de hardware/mapa.
+
+                                                 Multiempresa, autenticação/RBAC, frota,
+                                                 motoristas, viagens, checklist, despesas,     Fluxos ponta a ponta com dados reais;
+    Fase 1 - Núcleo operacional
+                                                 comprovativos, aprovação, manutenção          testes AT aplicáveis aprovados.
+                                                 básica, auditoria e relatórios.
+
+                                                 Persistência local, UUID/idempotência, fila
+                                                 de sincronização, upload retomável e          Nenhum registo offline se perde nos
+    Fase 2 - Operação offline
+                                                 testes Android/iOS de perda/regresso de       testes; erros e limitações ficam visíveis.
+                                                 rede.
+
+                                                 Homologação e piloto do rastreador,           Teste real confirma recolha e reenvio
+    Fase 3 - GPS autónomo                        ingestão, mapa/histórico, geofences,          offline; ponto actual e histórico são
+                                                 alertas e store-and-forward.                  distintos.
+
+                                                 Reconciliação multimoeda, combustível,
+    Fase 4 - Controlo financeiro e manutenção                                                  Cálculos reproduzíveis; moedas/estados
+                                                 custo/km, documentos por rota,
+    avançados                                                                                  separados; relatórios validados.
+                                                 manutenção avançada e relatórios.
+
+                                                 Piloto, formação, backups/restauro,           Aceitação formal; segurança e
+    Fase 5 - Piloto e produção                   monitorização, manuais, plano de              recuperação testadas; responsáveis
+                                                 incidentes e migração.                        treinados.
+
+
+
+
+                                  Documento de trabalho para desenvolvimento • Versão 1.0 • Página 25
+                                                                        SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+17.1 Piloto operacional recomendado
+Executar piloto com pelo menos um camião em rota que inclua períodos de boa e má cobertura, sem
+substituir os processos de segurança existentes. Validar o carregador, a instalação do rastreador, o envio
+de pontos, o armazenamento offline, a recuperação da rede, a captura de comprovativos, o fluxo de
+aprovação e o fecho financeiro. Recolher evidências antes de expandir a toda a frota.
+
+
+18. ENTREGÁVEIS, OPERAÇÃO E MANUTENÇÃO
+18.1 Entregáveis de desenvolvimento
+   Repositório de código actualizado, com histórico e instruções de execução.
+   Esquema de dados e migrações versionadas; seeds de demonstração separados de produção.
+   Ficheiro de variáveis de ambiente de exemplo sem segredos, e inventário dos segredos/serviços que o
+    operador deve configurar.
+   Documentação da API e dos adaptadores GPS, mapas, notificações e câmbio implementados.
+   Matriz de requisitos versus ficheiros/módulos/testes, incluindo os requisitos não implementados e a
+    razão.
+   Relatório de testes com pass/fail, versão, data, ambiente, dispositivos utilizados e limitações
+    conhecidas.
+   Guia de instalação e deployment; procedimento de migração, backup, restauro e rollback quando
+    aplicável.
+   Manual do administrador, gestor de frota, financeiro, despachante e motorista.
+   Guia de instalação/inspecção do rastreador, checklist de hardware, carregador e associação
+    dispositivo-veículo.
+   Plano de suporte, monitorização, tratamento de incidente e contacto técnico responsável.
+
+18.2 Formação e transferência
+A equipa deve demonstrar os fluxos críticos à empresa: criar e despachar uma viagem; verificar
+carregador e GPS; operar sem rede; submeter e aprovar despesa; reconstituir histórico GPS; tratar
+documento expirado; fechar viagem; consultar auditoria; recuperar de falha simulada. A entrega inclui
+uma sessão prática ou guião equivalente.
+
+18.3 Operação contínua
+   Definir responsáveis pelo cadastro e manutenção dos veículos, política de despesas, taxas de câmbio,
+    documentos, acessos e tratamento de alertas.
+   Executar revisões periódicas de utilizadores/permissões e retirar acessos sem necessidade.
+   Actualizar dependências e corrigir vulnerabilidades de forma controlada, com testes e plano de
+    rollback.
+   Verificar periodicamente custos de dados GPS, roaming, mapas, armazenamento de fotografias e
+    notificações.
+   Realizar teste de restauro e revisão de capacidade antes de aumentar significativamente a frota ou a
+    cadência de telemetria.
+
+
+19. DECISÕES QUE EXIGEM CONFIRMAÇÃO DE NEGÓCIO OU
+FORNECEDOR
+A especificação permite iniciar o desenho e a implementação da lógica central. Os pontos seguintes não
+devem ser inventados pelo agente; devem ser confirmados e documentados. Enquanto a decisão não
+existir, a arquitectura deve permitir parametrização ou manter o adaptador isolado.
+
+
+
+
+                       Documento de trabalho para desenvolvimento • Versão 1.0 • Página 26
+                                                                                        SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+ Decisão                                      O que deve ser confirmado                    Regra enquanto não for confirmado
+
+                                              Protocolo/API, memória offline, energia      Criar adaptador; simulação apenas em
+ Modelo e fornecedor GPS                      de reserva, SIM/roaming, cadência,           teste, nunca apresentar posições falsas
+                                              tamper e custo.                              em produção.
+
+                                              Fornecedor, licença, download offline,       Não activar offline sem licença; manter
+ Mapa, navegação e offline
+                                              atribuição e limites.                        fornecedor substituível.
+
+                                              Fornecedor, região, custos, SLA, backups,    Preferir custos claros e exportação de
+ Alojamento e base de dados
+                                              RPO/RTO e acesso.                            dados; segredos fora do código.
+
+                                              Canais in-app, e-mail, SMS ou WhatsApp,      Manter inbox in-app; activar canal
+ Canais de notificação
+                                              cobertura e custos por país.                 externo só após configuração e teste.
+
+                                              Limites por valor/categoria,                 Configurar por empresa; não fixar limites
+ Política de aprovação
+                                              comprovativos, per diem, alçadas e fecho.    arbitrários no código.
+
+                                              Prazos para GPS, despesas, documentos,       Validar prazo provisório com
+ Retenção de dados
+                                              fotos e logs.                                jurídico/financeiro antes da produção.
+
+                                              Modelos/versões, suporte, carregador e       Testar Android/iOS de referência;
+ Política de uso do telemóvel
+                                              permissões.                                  rastreador é a fonte primária.
+
+                                              Documentos, autorizações, moeda, fuso e      Configurar por país; validar completude
+ Regras por país e fronteira
+                                              procedimentos por rota.                      legal com especialista.
+
+                                              Plano de contas, formato e sistema           Entregar exports verificáveis; não alegar
+ Integração contabilística
+                                              contabilístico.                              integração inexistente.
+
+                                              Frota, pontos/minuto, utilizadores,          Medir no piloto; prever retenção e
+ Volume e crescimento
+                                              fotos/dia e retenção.                        agregação de telemetria.
+
+
+
+
+  IMPORTANTE
+  A existência de decisões pendentes não impede a construção do núcleo do sistema. Porém, nenhum
+  requisito dependente de hardware ou fornecedor pode ser certificado como concluído até existir teste real
+  no ambiente e equipamento acordados.
+
+
+
+
+20. REFERÊNCIAS TÉCNICAS E NOTAS DE CONFORMIDADE
+As referências abaixo sustentam decisões técnicas importantes. A equipa deve rever a documentação
+vigente durante a implementação, pois compatibilidade de navegadores, termos de fornecedores e
+requisitos legais podem mudar.
+Geolocation API - MDN Web Docs: Consultar a referência oficial
+    A geolocalização do navegador depende de contexto seguro e de permissões do utilizador; a disponibilidade
+    concreta varia com dispositivo e navegador.
+
+Service workers - web.dev: Consultar a referência oficial
+    O ciclo de vida do service worker é controlado pelo navegador; a aplicação deve persistir dados e não depender de
+    execução contínua em memória.
+
+OpenStreetMap Foundation - Tile Usage Policy: Consultar a referência oficial
+    O serviço público padrão de tiles não permite pré-carregamento/download em massa para utilização offline. Usar
+    fornecedor que autorize explicitamente ou alojamento próprio.
+
+OWASP Application Security Verification Standard (ASVS): Consultar a referência oficial
+    Referência de requisitos verificáveis para desenho e testes de segurança. Versão estável indicada no site
+    consultado: ASVS 5.0.0, publicada em Maio de 2025.
+
+
+
+
+                               Documento de trabalho para desenvolvimento • Versão 1.0 • Página 27
+                                                                            SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+20.1 Nota sobre legislação e aconselhamento local
+O SIGFCO deve ser parametrizado e operado de acordo com as normas aplicáveis em Moçambique e nos
+países de operação, incluindo transporte, trabalho, fiscalidade, documentação transfronteiriça,
+privacidade, segurança rodoviária e conservação de registos. Esta especificação não substitui parecer
+jurídico nem certifica a lista de documentos legais de cada rota. A empresa deve validar os requisitos com
+assessoria competente antes da produção.
+
+
+ANEXO A - CHECKLIST DE ACEITAÇÃO ANTES DE PUBLICAR
+☐ Código e migrações versionados; ambiente de teste e produção separados.
+☐ Autenticação, recuperação de conta e permissões testadas para cada perfil.
+☐ Isolamento de empresas verificado por tentativas de acesso directo a API e ficheiros.
+☐ Carregador funcional obrigatório aplicado no fluxo de despacho sem bypass do motorista.
+☐ Rastreador dedicado instalado, identificado e validado em teste de rede e sem rede.
+☐ Store-and-forward validado com pontos históricos, timestamps originais e reenvio sem duplicação.
+☐ Mapa informa actualidade do último ponto e não apresenta telemetria antiga como posição actual.
+☐ PWA offline mantém despesas, incidentes, fotografias e fila depois de reiniciar o navegador/dispositivo.
+☐ A sincronização só confirma sucesso após ACK do servidor; fotografias e despesas são idempotentes.
+☐ Aprovação, rejeição, orçamento, câmbio, reconciliação e fecho preservam o histórico auditável.
+☐ Documentos expirados, manutenção crítica e checklist reprovada bloqueiam partida quando
+configurados como críticos.
+☐ Backups, restauro, logs, monitorização e plano de incidentes documentados e testados.
+☐ Licenças de mapas, serviços externos e políticas de dados revistas.
+☐ Manual e formação entregues; limitações conhecidas e integrações pendentes declaradas por escrito.
+
+
+ANEXO B - MATRIZ RESUMIDA DE PRIORIDADE
+ Prioridade                             Interpretação                           Exemplos
+
+                                                                                Isolamento de empresas, carregador
+                                        Não pode ser removido nem posto em      obrigatório, rastreador autónomo
+ Crítico                                produção com falha; bloqueia            como fonte primária, persistência
+                                        aceitação.                              offline sem perda, auditoria financeira
+                                                                                essencial.
+
+                                        Necessário para o produto operacional   Viagens, despesas, aprovações,
+ Obrigatório                            de acordo com este SRS; requer          documentos, manutenção, moedas,
+                                        implementação e teste.                  relatórios e segurança.
+
+                                        Pode ser introduzido                    Stock avançado de peças, integração
+                                        progressivamente, mas deve ser          contabilística, notificações externas,
+ Importante / configurável
+                                        contemplado na arquitectura e ter       análises avançadas e integrações
+                                        decisão explícita.                      adicionais.
+
+
+
+
+                         Documento de trabalho para desenvolvimento • Versão 1.0 • Página 28
+                                                                         SIGFCO | ESPECIFICAÇÃO DE REQUISITOS
+
+
+
+ANEXO C - DECLARAÇÃO DE ACEITAÇÃO DO
+FORNECEDOR/IMPLEMENTADOR
+Ao aceitar esta especificação como baseline, o implementador compromete-se a mapear todos os
+requisitos para entrega e teste, declarar limitações de hardware/fornecedores, não substituir
+funcionalidades críticas por simulações e apresentar evidências para a aceitação do SIGFCO.
+
+ Campo                                                    Preenchimento
+
+ Nome da equipa / implementador
+
+ Versão do plano técnico associado
+
+ Requisitos com dependências externas identificadas
+
+ Limitações e excepções propostas (com justificação)
+
+ Data e responsável pela aceitação
+
+
+Fim da especificação - SIGFCO SRS v1.0.
+
+
+
+
+                        Documento de trabalho para desenvolvimento • Versão 1.0 • Página 29
+

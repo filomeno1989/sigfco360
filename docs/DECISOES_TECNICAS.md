@@ -64,3 +64,11 @@
 
 **Escolha:** bun test para regras puras (20 testes: estados, checklist bloqueante, câmbio, haversine, frescura) + verificação e2e por browser dos fluxos críticos + testes de API dos cenários AT executados com evidência no worklog.
 **Pendência AT-004/007/020/021/022/025:** hardware real / restauro controlado — execução do operador.
+
+## DT-12 · Migração de produção — PostgreSQL (Supabase) + Vercel
+
+**Escolha:** para a entrada em operação real (Beira, 2026) a base migra de SQLite para PostgreSQL hospedado no Supabase; a aplicação é publicada na Vercel. O schema Prisma não muda de estrutura (era portável por desenho — ver DT-01).
+**Razões:** disponibilidade a partir de qualquer escritório/telemóvel, backups automáticos, ligação futura de RLS (DT-01), pooler PgBouncer para funções serverless.
+**Ajustes aplicados:** datasource `postgresql`; ligação de runtime via pooler (porta 6543); DDL aplicado uma única vez com `prisma db push` a partir de ligação directa; `prisma generate` no postinstall; `output: standalone` apenas fora da Vercel.
+**Riscos controlados:** estados continuam strings com validação no servidor (DT-08); dinheiro continua em centavos inteiros (DT-02); `contains` passa a sensível a maiúsculas por omissão no PostgreSQL — queries de pesquisa mantêm comportamento aceitável porque os códigos são normalizados em maiúsculas na entrada.
+**Pendência declarada:** anexos ainda em disco local do runtime (efémero em serverless) — migração para Supabase Storage pendente (ver README §7).

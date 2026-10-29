@@ -28,6 +28,11 @@ import { ManutencaoView } from './views-maintenance'
 import { RelatoriosView, AlertasView, AuditoriaView, ConfiguracaoView } from './views-misc'
 import { MotoristaApp } from './views-driver'
 
+// Moçambique tem um único fuso horário oficial (CAT, UTC+2). A base guarda o
+// identificador IANA; apresentamos sempre o nome civil legível.
+const FUSO_LABEL: Record<string, string> = { 'Africa/Maputo': 'Hora de Moçambique (CAT)' }
+const fusoLegivel = (tz?: string | null) => FUSO_LABEL[tz ?? ''] ?? tz ?? FUSO_LABEL['Africa/Maputo']
+
 export type Sessao = {
   user: { id: string; name: string; email: string; role: string; companyId: string | null; branchId: string | null; driverId: string | null }
   company: { id: string; name: string; currencyBase: string; timezone: string; locale: string; isDemo: boolean } | null
@@ -131,7 +136,7 @@ export function SigfcoApp() {
           </div>
           <footer className="mt-auto border-t py-3 px-6 text-xs text-muted-foreground flex flex-wrap items-center justify-between gap-2">
             <span>SIGFCO — Sistema Integrado de Gestão de Frotas e Controles Operacionais</span>
-            <span>{sessao.company?.name}{sessao.company?.isDemo ? ' • ambiente DEMO' : ''} • {sessao.company?.timezone}</span>
+            <span>{sessao.company?.name}{sessao.company?.isDemo ? ' • ambiente DEMO' : ''} • {fusoLegivel(sessao.company?.timezone)}</span>
           </footer>
         </div>
       )}
@@ -234,7 +239,7 @@ function Sidebar({ view, setView, sessao, className }: { view: string; setView: 
         <NavBtn key={n.id} item={n} activo={view === n.id} onClick={() => setView(n.id)} />
       ))}
       <div className="mt-auto px-4 pt-4 text-[10px] leading-relaxed text-zinc-600">
-        v1.0 • Fuso {sessao.company?.timezone ?? 'Africa/Maputo'}
+        v1.0 • Fuso {fusoLegivel(sessao.company?.timezone)}
         <br />Base {sessao.company?.currencyBase ?? 'MZN'}
       </div>
     </nav>

@@ -3,9 +3,9 @@
 // Modelo de dados de referência (SRS v1.0 §13)
 //
 // Notas de implementação:
-//  - SQLite não suporta enums Prisma nem Json: estados são strings com
-//    constantes tipadas em src/lib/constantes.ts; campos estruturados
-//    são JSON serializado em String.
+//  - Base PostgreSQL (Supabase) em produção. Sem enums Prisma nem Json por
+//    decisão de portabilidade: estados são strings com constantes tipadas em
+//    src/lib/constantes.ts; campos estruturados são JSON serializado em String.
 //  - Dinheiro: sempre em unidades menores (centavos) inteiras + moeda
 //    ISO. Conversões guardam taxa, fonte, data e autor (FIN-002/004).
 //  - Timestamps: UTC no servidor; eventos do dispositivo guardam
@@ -19,7 +19,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

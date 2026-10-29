@@ -4,15 +4,17 @@ Implementação integral do SRS v1.0 (27-10-2026): painel Web de escritório + A
 (PWA offline-first) + camada de ingestão GPS autónoma com adaptadores por fornecedor.
 
 **Âmbito operacional:** Porto da Beira • EN6 • rotas nacionais e transfronteiriças da África Austral
-**Idioma:** Português de Moçambique (estrutura preparada para inglês) • Fuso Africa/Maputo • Moeda-base MZN
+**Idioma:** Português de Moçambique (estrutura preparada para inglês) • Fuso Hora de Moçambique (CAT, UTC+2) • Moeda-base MZN
+**Propriedade:** Filomeno Manuel Joaquim Alexandre — Beira, Moçambique
 
 ---
 
 ## 1. Requisitos do ambiente
 
 - Node.js 20+ ou Bun 1.1+
-- Sem serviços externos obrigatórios: a base de dados é SQLite (ficheiro local) — o
-  sistema está preparado para migração a PostgreSQL (ver `docs/DECISOES_TECNICAS.md`)
+- Base de dados PostgreSQL — produção hospedada no Supabase (projeto `sigfco360`);
+  em desenvolvimento local pode apontar `DATABASE_URL` para a própria base na nuvem
+  (decisão de migração documentada em `docs/DECISOES_TECNICAS.md`, DT-12)
 
 ## 2. Instalação e execução
 
@@ -20,7 +22,7 @@ Implementação integral do SRS v1.0 (27-10-2026): painel Web de escritório + A
 # 1. dependências
 bun install            # ou npm install
 
-# 2. base de dados (cria db/custom.db a partir de prisma/schema.prisma)
+# 2. base de dados (aplica prisma/schema.prisma à base em DATABASE_URL)
 bun run db:push
 
 # 3. ambiente de desenvolvimento
@@ -57,8 +59,8 @@ O sistema inicia vazio (produção limpa, FR-004). Para criar a empresa de DEMON
 
 ## 3. Variáveis de ambiente
 
-Ver `.env.example`. Em produção são obrigatórias: `DATABASE_URL` (PostgreSQL recomendado),
-`NEXTAUTH_SECRET`/segredo de sessão e credenciais dos fornecedores quando homologados.
+Ver `.env.example`. Em produção são obrigatórias: `DATABASE_URL` (PostgreSQL/Supabase,
+via pooler na porta 6543) e, quando homologados, os segredos dos fornecedores.
 Nenhum segredo vive no código cliente (DEV-007).
 
 ## 4. Arquitectura (resumo)
@@ -117,5 +119,5 @@ O sistema funciona SEM nenhum fornecedor contratado; todos os adaptadores estão
 2. **Mapa offline:** OSM público não autoriza download em massa; activar apenas com fornecedor licenciado.
 3. **PWA em segundo plano:** navegadores suspendem execução/geolocalização; o rastreio contínuo garantido é o do rastreador dedicado (REGRA FUNDAMENTAL do SRS).
 4. **Notificações externas (email/SMS):** inbox in-app activa; canais externos exigem fornecedor e custos.
-5. **SQLite:** adequado para piloto/homologação; para produção multi-empresa de volumes altos, migrar a PostgreSQL (schema é portável).
+5. **Anexos em disco local:** os ficheiros privados vão para o disco do servidor; em hospedagem serverless (Vercel) o disco é efémero — migração para Supabase Storage prevista (ponto de ligação: `src/lib/files.ts`).
 6. **Can bus/OBD, satélite, imobilização remota:** fora do âmbito inicial (§2.4 do SRS).

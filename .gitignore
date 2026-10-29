@@ -52,3 +52,10 @@ prompt
 server.log
 # Skills directory
 /skills/
+# dados locais e artefactos de trabalho (nunca no repositório)
+/db
+/upload
+/download
+/tool-results
+/scripts
+/worklog.md

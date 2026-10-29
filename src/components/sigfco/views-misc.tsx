@@ -221,7 +221,7 @@ export function ConfiguracaoView() {
               <Campo label="Telefone"><EntradaTexto value={String(company.phone ?? '')} onChange={(e) => setCompany({ ...company, phone: e.target.value })} /></Campo>
               <Campo label="Morada"><EntradaTexto value={String(company.address ?? '')} onChange={(e) => setCompany({ ...company, address: e.target.value })} /></Campo>
               <Campo label="Moeda-base" hint="MZN por defeito (FIN-001)"><Selecao value={String(company.currencyBase ?? 'MZN')} onChange={(v) => setCompany({ ...company, currencyBase: v })} opcoes={[{ value: 'MZN', label: 'MZN' }]} /></Campo>
-              <Campo label="Fuso horário" hint="Africa/Maputo por defeito (§2.5)"><Selecao value={String(company.timezone ?? 'Africa/Maputo')} onChange={(v) => setCompany({ ...company, timezone: v })} opcoes={[{ value: 'Africa/Maputo', label: 'Africa/Maputo' }]} /></Campo>
+              <Campo label="Fuso horário" hint="Hora de Moçambique (CAT, UTC+2) por defeito (§2.5)"><Selecao value={String(company.timezone ?? 'Africa/Maputo')} onChange={(v) => setCompany({ ...company, timezone: v })} opcoes={[{ value: 'Africa/Maputo', label: 'Hora de Moçambique (CAT)' }]} /></Campo>
             </div>
             <Button className="mt-3" onClick={guardarEmpresa}>Guardar</Button>
           </Panel>

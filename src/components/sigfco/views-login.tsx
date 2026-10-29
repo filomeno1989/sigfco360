@@ -67,12 +67,8 @@ export function LoginView({ aoEntrar }: { aoEntrar: () => void }) {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="grid w-full max-w-4xl gap-6 lg:grid-cols-2 items-start">
           <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 font-bold text-white text-lg">SF</span>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">SIGFCO</h1>
-                <p className="text-sm text-zinc-400">Gestão de Frotas e Controles Operacionais</p>
-              </div>
+            <div className="space-y-4">
+              <img src="/brand/logo-sigfco-frotas.png" alt="SIGFCO — Sistema Integrado de Gestão de Frotas e Controlos Operacionais" className="h-28 w-auto max-w-full" />
             </div>
             <p className="text-sm leading-relaxed text-zinc-400">
               Plataforma integrada para viagens, frota, motoristas, despesas, manutenção, documentos e rastreio autónomo por GPS dedicado — Porto da Beira, EN6 e corredores transfronteiriços da África Austral.
@@ -140,7 +136,7 @@ export function LoginView({ aoEntrar }: { aoEntrar: () => void }) {
         </div>
       </div>
       <footer className="border-t border-zinc-800 px-6 py-3 text-xs text-zinc-500">
-        SIGFCO v1.0 • Fuso horário Africa/Maputo • Moeda-base MZN • Português de Moçambique
+        SIGFCO v1.0 • Fuso horário de Moçambique (CAT, UTC+2) • Moeda-base MZN • Português de Moçambique
       </footer>
     </div>
   )

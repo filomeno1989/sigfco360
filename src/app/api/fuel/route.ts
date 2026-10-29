@@ -1,4 +1,4 @@
-// SIGFCO — Combustível (FUEL-001..004): abastecimentos, consumo esperado
+// SIGFCO - Combustível: abastecimentos, consumo esperado
 // vs real com pressupostos visíveis, anomalias mantendo revisão humana
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
@@ -16,7 +16,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
     include: { vehicle: { select: { plate: true } }, trip: { select: { code: true } } },
   })
 
-  // FUEL-002: consumo esperado vs real — com pressupostos declarados
+  //: consumo esperado vs real - com pressupostos declarados
   const consumption = await computeConsumption(companyId, vehicleId ?? undefined)
   return jsonOk({ logs, consumption })
 }, { anyPerm: ['fuel.read', 'report.read'] })
@@ -41,7 +41,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   const totalMinor = mulMinor(liters, pricePerLiterMinor)
   const flags: string[] = []
 
-  // FUEL-003: anomalias — sinalizar, nunca silenciosamente corrigir
+  //: anomalias - sinalizar, nunca silenciosamente corrigir
   if (vehicle.tankCapacityL && liters > vehicle.tankCapacityL * 1.15)
     flags.push(`Litros (${liters}) acima da capacidade plausível do tanque (${vehicle.tankCapacityL} L).`)
   if (odoKm < vehicle.odometerKm - 50)
@@ -49,7 +49,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   const recent = await db.fuelLog.findFirst({
     where: { companyId, vehicleId: vehicle.id, deviceTime: { gte: new Date(Date.now() - 30 * 60_000) } },
   })
-  if (recent) flags.push('Outro abastecimento registado há menos de 30 minutos — verificar duplicado.')
+  if (recent) flags.push('Outro abastecimento registado há menos de 30 minutos - verificar duplicado.')
 
   const fuelLog = await db.fuelLog.create({
     data: {
@@ -84,14 +84,14 @@ export async function computeConsumption(companyId: string, vehicleId?: string) 
       orderBy: { odoKm: 'asc' },
     })
     const assumptions: string[] = []
-    if (logs.length < 2) { results.push({ vehicle: v.plate, expectedL: null, realL: null, distanceKm: null, refL100: v.refConsumption ?? null, assumptions: ['Dados insuficientes (menos de 2 abastecimentos) — sem indicador fiável (FUEL-002).'] }); continue }
+    if (logs.length < 2) { results.push({ vehicle: v.plate, expectedL: null, realL: null, distanceKm: null, refL100: v.refConsumption ?? null, assumptions: ['Dados insuficientes (menos de 2 abastecimentos) - sem indicador fiável.'] }); continue }
     const first = logs[0]
     const last = logs[logs.length - 1]
     const distanceKm = last.odoKm - first.odoKm
     const realL = logs.slice(1).reduce((s, l) => s + l.liters, 0)
     const expectedL = v.refConsumption ? (distanceKm * v.refConsumption) / 100 : null
-    if (!v.refConsumption) assumptions.push('Sem consumo de referência na ficha do veículo — comparação esperado/real indisponível.')
-    if (first.odoKm <= 0) assumptions.push('Primeira leitura de odómetro implausível — intervalo pode estar distorcido.')
+    if (!v.refConsumption) assumptions.push('Sem consumo de referência na ficha do veículo - comparação esperado/real indisponível.')
+    if (first.odoKm <= 0) assumptions.push('Primeira leitura de odómetro implausível - intervalo pode estar distorcido.')
     assumptions.push('Método: soma dos litros entre leituras de odómetro (tanque cheio/parcial declarado manualmente).')
     results.push({
       vehicle: v.plate,

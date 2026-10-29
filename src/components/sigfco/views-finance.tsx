@@ -1,6 +1,6 @@
-// SIGFCO — Financeiro: adiantamentos, reconciliação, per diem, taxas de
-// câmbio (FR-065..067, FIN-001..016) — taxas manuais exigem permissão e
-// ficam auditadas; valores originais nunca substituídos (FIN-002)
+// SIGFCO - Financeiro: adiantamentos, reconciliação, per diem, taxas de
+// câmbio - taxas manuais exigem permissão e
+// ficam auditadas; valores originais nunca substituídos
 'use client'
 
 import * as React from 'react'
@@ -20,7 +20,7 @@ export function FinanceiroView() {
   const { sessao } = useApp()
   const podeGerir = ['FINANCE', 'COMPANY_ADMIN', 'PLATFORM_ADMIN'].includes(sessao.user.role)
   return (
-    <Page title="Financeiro" subtitle="Adiantamentos, per diem, câmbio e reconciliação — valores originais preservados com taxa registada (FIN-002)" demo={sessao.company?.isDemo}>
+    <Page title="Financeiro" subtitle="Adiantamentos, per diem, câmbio e reconciliação - valores originais preservados com taxa registada" demo={sessao.company?.isDemo}>
       <Tabs defaultValue="adiantamentos">
         <TabsList>
           <TabsTrigger value="adiantamentos">Adiantamentos</TabsTrigger>
@@ -71,7 +71,7 @@ function Adiantamentos({ podeGerir }: { podeGerir: boolean }) {
       </div>
 
       {recon && (
-        <Panel title="Reconciliação da viagem (FR-067)" description="Saldo por moeda: positivo = a devolver pelo motorista; negativo = a reembolsar. Sem mistura de moedas sem taxa (FIN-015).">
+        <Panel title="Reconciliação da viagem" description="Saldo por moeda: positivo = a devolver pelo motorista; negativo = a reembolsar. Sem mistura de moedas sem taxa.">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {recon.balances.map((b) => (
               <Kpi key={b.currency} label={b.currency} value={fmtMT(b.balanceMinor, b.currency)}
@@ -85,17 +85,17 @@ function Adiantamentos({ podeGerir }: { podeGerir: boolean }) {
 
       <Panel title={`Adiantamentos (${rows.length})`}>
         <DataTable rows={rows} columns={[
-          { key: 'trip', header: 'Viagem', render: (a) => a.trip?.code ?? '—' },
-          { key: 'driver', header: 'Motorista', render: (a) => a.driver?.name ?? '—' },
+          { key: 'trip', header: 'Viagem', render: (a) => a.trip?.code ?? '-' },
+          { key: 'driver', header: 'Motorista', render: (a) => a.driver?.name ?? '-' },
           { key: 'valor', header: 'Valor', render: (a) => <b>{fmtMT(a.amountMinor, a.currency)}</b> },
           { key: 'data', header: 'Concedido', render: (a) => fmtData(a.grantedAt), hideOnMobile: true },
-          { key: 'method', header: 'Método', render: (a) => a.method ?? '—', hideOnMobile: true },
-          { key: 'doc', header: 'Ref. documento', render: (a) => a.docRef ?? '—', hideOnMobile: true },
-          { key: 'settled', header: 'Liquidado', render: (a) => a.settledMinor != null ? fmtMT(a.settledMinor, a.currency) : '—' },
+          { key: 'method', header: 'Método', render: (a) => a.method ?? '-', hideOnMobile: true },
+          { key: 'doc', header: 'Ref. documento', render: (a) => a.docRef ?? '-', hideOnMobile: true },
+          { key: 'settled', header: 'Liquidado', render: (a) => a.settledMinor != null ? fmtMT(a.settledMinor, a.currency) : '-' },
         ]} />
       </Panel>
 
-      <Modal open={novo} onOpenChange={setNovo} title="Novo adiantamento (FR-065)"
+      <Modal open={novo} onOpenChange={setNovo} title="Novo adiantamento"
         footer={<><Button variant="outline" onClick={() => setNovo(false)}>Cancelar</Button><Button onClick={criar}>Conceder</Button></>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Campo label="Viagem" required><Selecao value={form.tripId ?? ''} onChange={(v) => setForm({ ...form, tripId: v })} opcoes={[{ value: '', label: 'Seleccionar…' }, ...trips.map((t) => ({ value: t.id, label: t.code }))]} /></Campo>
@@ -140,7 +140,7 @@ function PerDiem({ podeGerir }: { podeGerir: boolean }) {
 
   return (
     <div className="space-y-4">
-      <Panel title="Calculadora de per diem (FR-066)" description="Apresenta as regras usadas; alterações manuais exigem motivo e permissão."
+      <Panel title="Calculadora de per diem" description="Apresenta as regras usadas; alterações manuais exigem motivo e permissão."
         actions={<Button size="sm" variant="outline" onClick={() => setCalc({ country: 'ZW', days: '1' })}><Calculator className="mr-1 h-4 w-4" />Calcular</Button>}>
         {resultado && <p className="rounded border border-teal-300 bg-teal-50 p-2.5 text-sm text-teal-900">{resultado}</p>}
       </Panel>
@@ -193,8 +193,8 @@ function Cambios({ podeGerir }: { podeGerir: boolean }) {
   return (
     <div className="space-y-4">
       <ErroAlerta erro={erro} />
-      <Panel title="Regra de câmbio (FIN-003)" description="Toda a taxa tem origem explícita. Fonte API/automática só é activada após credenciais e teste real — enquanto isso, registo manual auditado.">
-        <p className="text-sm text-muted-foreground">A conversão guardada por despesa mantém o valor original, a taxa aplicada, a data e a fonte — reproduzível a partir dos dados (AT-013).</p>
+      <Panel title="Regra de câmbio" description="Toda a taxa tem origem explícita. Fonte API/automática só é activada após credenciais e teste real - enquanto isso, registo manual auditado.">
+        <p className="text-sm text-muted-foreground">A conversão guardada por despesa mantém o valor original, a taxa aplicada, a data e a fonte - reproduzível a partir dos dados.</p>
       </Panel>
       <Panel title={`Taxas registadas (${rows.length})`} actions={podeGerir && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Registar taxa</Button>}>
         <DataTable rows={rows} columns={[
@@ -202,10 +202,10 @@ function Cambios({ podeGerir }: { podeGerir: boolean }) {
           { key: 'rate', header: 'Taxa', render: (r) => r.rate },
           { key: 'source', header: 'Fonte', render: (r) => ({ MANUAL: 'Manual (auditada)', API: 'API externa', TRIP_TABLE: 'Tabela de viagem', BASE: 'Moeda base' }[r.source] ?? r.source) },
           { key: 'effectiveAt', header: 'Efectiva desde', render: (r) => fmtData(r.effectiveAt, true) },
-          { key: 'note', header: 'Nota', render: (r) => r.note ?? '—', hideOnMobile: true },
+          { key: 'note', header: 'Nota', render: (r) => r.note ?? '-', hideOnMobile: true },
         ]} />
       </Panel>
-      <Modal open={novo} onOpenChange={setNovo} title="Registar taxa de câmbio" description="Operação crítica — alterações ficam auditadas com autor, data e valor (§4.1)."
+      <Modal open={novo} onOpenChange={setNovo} title="Registar taxa de câmbio" description="Operação crítica - alterações ficam auditadas com autor, data e valor."
         footer={<><Button variant="outline" onClick={() => setNovo(false)}>Cancelar</Button><Button onClick={criar}>Registar</Button></>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Campo label="De" required><Selecao value={form.fromCcy ?? 'USD'} onChange={(v) => setForm({ ...form, fromCcy: v })} opcoes={[{ value: 'USD', label: 'USD' }, { value: 'ZAR', label: 'ZAR' }, { value: 'ZWG', label: 'ZWG' }, { value: 'MWK', label: 'MWK' }, { value: 'ZMW', label: 'ZMW' }, { value: 'CDF', label: 'CDF' }]} /></Campo>

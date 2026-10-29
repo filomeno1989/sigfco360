@@ -1,4 +1,4 @@
-// SIGFCO — Viagens: listagem e criação (FR-030..035, §5.3)
+// SIGFCO - Viagens: listagem e criação
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { nextCode } from '@/lib/numeracao'
@@ -14,7 +14,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
   const q = sp.get('q')
   const driverId = sp.get('driverId')
 
-  // Motorista vê apenas as suas viagens (AT-002, §4.1)
+  // Motorista vê apenas as suas viagens
   const driverScope = ctx.user.role === 'DRIVER'
     ? { driverId: ctx.user.driverId ?? '___none___' }
     : { ...(driverId ? { driverId } : {}) }
@@ -34,7 +34,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
     },
   })
 
-  // Motorista não vê orçamento global/custos confidenciais (§4.1)
+  // Motorista não vê orçamento global/custos confidenciais
   const visible = trips.map((t) => ctx.user.role === 'DRIVER'
     ? { ...t, budgetMinorTotal: undefined, closeBlockers: undefined }
     : t)
@@ -52,7 +52,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   const plannedStart = b.plannedStart ? new Date(String(b.plannedStart)) : new Date()
   const plannedEnd = b.plannedEnd ? new Date(String(b.plannedEnd)) : null
 
-  // FR-032: verificação automática ANTES da confirmação
+  //: verificação automática ANTES da confirmação
   const [blockers, conflicts] = await Promise.all([
     resourceBlockers(companyId, vehicleId, driverId),
     conflictCheck(companyId, vehicleId, driverId, plannedStart, plannedEnd),
@@ -62,7 +62,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   if (status === 'PLANNED' && blockers.length > 0)
     return jsonError(400, 'Não é possível planear: existem bloqueios de elegibilidade.', { blockers })
   if (status === 'PLANNED' && conflicts.length > 0)
-    return jsonError(409, 'Conflitos de disponibilidade detectados (§5.3).', { conflicts })
+    return jsonError(409, 'Conflitos de disponibilidade detectados.', { conflicts })
 
   const code = await nextCode(companyId, 'trip')
   const trip = await db.trip.create({
@@ -86,7 +86,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
     },
   })
 
-  // FR-033/034: linhas de orçamento por rubrica e moeda
+  ///034: linhas de orçamento por rubrica e moeda
   if (Array.isArray(b.budgetLines)) {
     for (const line of b.budgetLines as Array<{ category: string; currency: string; limitMinor: number; note?: string }>) {
       if (!line.category || !line.limitMinor) continue

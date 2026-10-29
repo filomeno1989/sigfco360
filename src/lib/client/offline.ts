@@ -1,9 +1,9 @@
 // =====================================================================
-// SIGFCO — Motor offline do motorista (§8.2, OFF-001..010, AT-008..011)
-// Persistência real em IndexedDB (sobrevive a fecho/reinício — AT-010),
-// fila com UUID por registo, reenvio automático com backoff (OFF-005),
-// ACK do servidor antes de remover a cópia local (OFF-004) e fotos
-// comprimidas no dispositivo (AT-011).
+// SIGFCO - Motor offline do motorista
+// Persistência real em IndexedDB,
+// fila com UUID por registo, reenvio automático com backoff,
+// ACK do servidor antes de remover a cópia local e fotos
+// comprimidas no dispositivo.
 // =====================================================================
 'use client'
 
@@ -14,12 +14,12 @@ const META = 'meta'
 export type FilaItem = {
   clientUuid: string
   type: 'EXPENSE' | 'INCIDENT' | 'TRIP_EVENT' | 'GPS_MOBILE'
-  deviceTime: string // hora original do dispositivo (OFF-002)
+  deviceTime: string // hora original do dispositivo
   payload: Record<string, unknown>
   estadoLocal: 'GUARDADO' | 'A_ENVIAR' | 'SINCRONIZADO' | 'ERRO'
   tentativas: number
   erro?: string
-  resumo: string // descrição legível para a fila visível (OFF-006)
+  resumo: string // descrição legível para a fila visível
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -77,8 +77,8 @@ export function novoUuid(): string {
   return 'u-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12)
 }
 
-// ------------------------- Fotografia (AT-011) -----------------------
-/** Comprime no dispositivo: largura máx. configurável, JPEG ~0.7 —
+// ------------------------- Fotografia -----------------------
+/** Comprime no dispositivo: largura máx. configurável, JPEG ~0.7 -
  *  mantém legibilidade do valor/data/estabelecimento do talão. */
 export function comprimirImagem(file: File, maxWidth = 1280, quality = 0.72): Promise<{ dataUrl: string; width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -104,7 +104,7 @@ export function comprimirImagem(file: File, maxWidth = 1280, quality = 0.72): Pr
   })
 }
 
-// ------------------------- Geolocalização (FR-052) -------------------
+// ------------------------- Geolocalização -------------------
 export function obterPosicao(): Promise<{ lat: number; lng: number; accuracyM: number } | null> {
   return new Promise((resolve) => {
     if (!('geolocation' in navigator)) { resolve(null); return }
@@ -116,13 +116,13 @@ export function obterPosicao(): Promise<{ lat: number; lng: number; accuracyM: n
   })
 }
 
-// ------------------------- Sincronização (OFF-003..005) --------------
+// ------------------------- Sincronização --------------
 let syncing = false
 let backoffMs = 5_000
 export let ultimaSincronizacao: Date | null = null
 
 /** Envia a fila pendente; devolve nº de itens confirmados. Repetir o
- *  mesmo UUID nunca duplica registos no servidor (AT-009). */
+ *  mesmo UUID nunca duplica registos no servidor. */
 export async function sincronizar(): Promise<{ enviados: number; erros: number }> {
   if (syncing) return { enviados: 0, erros: 0 }
   syncing = true
@@ -140,7 +140,7 @@ export async function sincronizar(): Promise<{ enviados: number; erros: number }
     })
 
     if (res.status === 401) {
-      for (const item of fila) await filaMarcar(item.clientUuid, { estadoLocal: 'ERRO', erro: 'Sessão expirada — autentique-se para sincronizar' })
+      for (const item of fila) await filaMarcar(item.clientUuid, { estadoLocal: 'ERRO', erro: 'Sessão expirada - autentique-se para sincronizar' })
       syncing = false
       return { enviados: 0, erros: fila.length }
     }
@@ -153,7 +153,7 @@ export async function sincronizar(): Promise<{ enviados: number; erros: number }
     const data = (await res.json()) as { acks: Array<{ clientUuid: string; ok: boolean; id?: string; error?: string }> }
     for (const ack of data.acks) {
       if (ack.ok) {
-        // OFF-004: só remove/marca sincronizado APÓS ACK durável
+        //: só remove/marca sincronizado APÓS ACK durável
         await filaMarcar(ack.clientUuid, { estadoLocal: 'SINCRONIZADO', erro: undefined })
         enviados++
       } else {
@@ -170,7 +170,7 @@ export async function sincronizar(): Promise<{ enviados: number; erros: number }
 }
 
 /** Agendador: tenta sincronizar quando há rede; tolera navegadores que
- *  só permitem sincronizar com a app aberta (OFF-023 — sem promessas
+ *  só permitem sincronizar com a app aberta ( - sem promessas
  *  falsas de telemetria de segundo plano). */
 export function iniciarAutoSync(onMudanca?: () => void) {
   const tentar = () => {

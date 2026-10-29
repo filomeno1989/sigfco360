@@ -1,4 +1,4 @@
-// SIGFCO — Regras de per diem (FR-066, FIN-005) e cálculo legível
+// SIGFCO - Regras de per diem e cálculo legível
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 
@@ -14,7 +14,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   const companyId = scopeCompanyId(ctx, req)
   const b = await readJson<Record<string, unknown>>(req)
 
-  // Cálculo legível (FR-066): apresenta regras usadas; alteração manual exige motivo+permissão
+  // Cálculo legível: apresenta regras usadas; alteração manual exige motivo+permissão
   if (b.action === 'calculate') {
     const country = String(b.country ?? '')
     const days = Math.max(1, Number(b.days ?? 1))
@@ -50,7 +50,7 @@ export const PATCH = withAuth(async ({ ctx, req }) => {
   const b = await readJson<{ id: string; amountMinor?: number; active?: boolean; reason?: string }>(req)
   const rule = await db.perDiemRule.findUnique({ where: { id: b.id } })
   if (!rule || rule.companyId !== companyId) return jsonError(404, 'Regra não encontrada.')
-  if (!b.reason) return jsonError(400, 'Alterações manuais à regra de per diem exigem motivo (FR-066).')
+  if (!b.reason) return jsonError(400, 'Alterações manuais à regra de per diem exigem motivo.')
   const updated = await db.perDiemRule.update({
     where: { id: rule.id },
     data: { amountMinor: b.amountMinor !== undefined ? Number(b.amountMinor) : undefined, active: b.active },

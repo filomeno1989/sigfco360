@@ -1,5 +1,5 @@
-// SIGFCO — Eventos de viagem (FR-036): partidas, checkpoints, fronteiras,
-// pausas, SOS — idempotentes via clientUuid (sincronização offline OFF-003)
+// SIGFCO - Eventos de viagem: partidas, checkpoints, fronteiras,
+// pausas, SOS - idempotentes via clientUuid
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { TRIP_EVENT_TYPES } from '@/lib/constantes'
@@ -24,14 +24,14 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
   if (!isOwn && !['DISPATCHER', 'FLEET_MANAGER', 'COMPANY_ADMIN', 'PLATFORM_ADMIN', 'BRANCH_MANAGER'].includes(ctx.user.role))
     return jsonError(403, 'Sem permissão para registar eventos nesta viagem.')
   if (['CLOSED', 'CANCELLED'].includes(trip.status) && bodyIsNotSystem(req))
-    return jsonError(409, 'Viagem fechada — despesas/eventos exigem reabertura autorizada (§5.3).')
+    return jsonError(409, 'Viagem fechada - despesas/eventos exigem reabertura autorizada.')
 
   const body = await readJson<{ type: string; note?: string; lat?: number; lng?: number; deviceTime?: string; clientUuid?: string }>(req)
   if (!TRIP_EVENT_TYPES.includes(body.type as never)) return jsonError(400, 'Tipo de evento inválido.')
 
   const clientUuid = body.clientUuid || `srv-${crypto.randomUUID()}`
   const existing = await db.tripEvent.findUnique({ where: { clientUuid } })
-  if (existing) return jsonOk({ event: existing, idempotent: true }) // OFF-003: ACK de repetição
+  if (existing) return jsonOk({ event: existing, idempotent: true }) //: ACK de repetição
 
   const event = await db.tripEvent.create({
     data: {
@@ -44,7 +44,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
   })
 
   if (body.type === 'SOS') {
-    // GPS-026: SOS → alerta crítico + notificação in-app, com escalonamento
+    //: SOS → alerta crítico + notificação in-app, com escalonamento
     await createAlert(companyId, {
       severity: 'CRITICAL', type: 'SOS',
       title: `SOS na viagem ${trip.code}`,

@@ -1,4 +1,4 @@
-// SIGFCO — Sessões activas e revogação de dispositivos (SEC-002, §4.1)
+// SIGFCO - Sessões activas e revogação de dispositivos
 import { withAuth, jsonOk, jsonError, readJson, audit } from '@/lib/api'
 import { revokeAllSessions } from '@/lib/auth'
 

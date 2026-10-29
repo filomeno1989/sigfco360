@@ -1,4 +1,4 @@
-// SIGFCO — Cercas geográficas (GPS-022)
+// SIGFCO - Cercas geográficas
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 

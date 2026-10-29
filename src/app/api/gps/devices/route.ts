@@ -1,4 +1,4 @@
-// SIGFCO — Dispositivos GPS (GPS-001, GPS-006, GPS-008, §4.1)
+// SIGFCO - Dispositivos GPS
 // Credenciais por dispositivo com rotação; associação com histórico.
 import crypto from 'crypto'
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
@@ -25,7 +25,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   const companyId = scopeCompanyId(ctx, req)
   const b = await readJson<Record<string, unknown>>(req)
   const serial = String(b.serial ?? '').trim()
-  if (!serial) return jsonError(400, 'Número de série/IMEI obrigatório (GPS-001).')
+  if (!serial) return jsonError(400, 'Número de série/IMEI obrigatório.')
   if (await db.gpsDevice.findUnique({ where: { companyId_serial: { companyId, serial } } }))
     return jsonError(409, `Dispositivo ${serial} já registado.`)
   const device = await db.gpsDevice.create({
@@ -53,19 +53,19 @@ export const PATCH = withAuth(async ({ ctx, req }) => {
   const device = await db.gpsDevice.findUnique({ where: { id: String(b.id) } })
   if (!device || device.companyId !== companyId) return jsonError(404, 'Dispositivo não encontrado.')
 
-  // Acções críticas geram auditoria (§4.1)
+  // Acções críticas geram auditoria
   if (b.action === 'rotate-key') {
     const key = newApiKey()
     await db.gpsDevice.update({ where: { id: device.id }, data: { apiKey: key } })
     await audit({ req, ctx, companyId, action: 'ROTATE_KEY', entity: 'GpsDevice', entityId: device.id })
-    return jsonOk({ apiKey: key, note: 'Guarde a nova chave com segurança — não será mostrada novamente em listagens.' })
+    return jsonOk({ apiKey: key, note: 'Guarde a nova chave com segurança - não será mostrada novamente em listagens.' })
   }
 
   if (b.action === 'assign') {
     const vehicleId = String(b.vehicleId ?? '')
     const vehicle = await db.vehicle.findUnique({ where: { id: vehicleId } })
     if (!vehicle || vehicle.companyId !== companyId) return jsonError(404, 'Veículo não encontrado.')
-    // histórico temporal da associação (§13.1)
+    // histórico temporal da associação
     await db.deviceAssignment.updateMany({ where: { deviceId: device.id, toAt: null }, data: { toAt: new Date() } })
     await db.deviceAssignment.create({ data: { companyId, deviceId: device.id, vehicleId, note: (b.note as string) || null } })
     const updated = await db.gpsDevice.update({ where: { id: device.id }, data: { vehicleId } })

@@ -1,9 +1,9 @@
 // =====================================================================
-// SIGFCO — Despesas (FR-050..060, §9, AT-008/009/012..015)
-//  · Idempotência por clientUuid (reenvio offline não duplica — AT-009)
-//  · Valor original + moeda NUNCA substituídos; conversão guardada (FIN-002)
-//  · Detecção de duplicados sinaliza, não rejeita sozinha (AT-015)
-//  · Aprovados não são alterados/apagados em silêncio (FR-057, AT-014)
+// SIGFCO - Despesas
+//  · Idempotência por clientUuid
+//  · Valor original + moeda NUNCA substituídos; conversão guardada
+//  · Detecção de duplicados sinaliza, não rejeita sozinha
+//  · Aprovados não são alterados/apagados em silêncio
 // =====================================================================
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
@@ -27,7 +27,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
     ...(sp.get('duplicates') === '1' ? { duplicateFlag: 'POSSIBLE_DUPLICATE' } : {}),
     ...(sp.get('noReceipt') === '1' ? { noReceiptReason: { not: null } } : {}),
   }
-  // FINANCEIRO vê fila completa; motorista só as suas (§4.1)
+  // FINANCEIRO vê fila completa; motorista só as suas
   const where = ctx.user.role === 'DRIVER' ? { ...q, driverId: ctx.user.driverId ?? '___' } : q
   const expenses = await db.expense.findMany({
     where,
@@ -47,7 +47,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   const b = await readJson<Record<string, unknown>>(req)
 
   const clientUuid = String(b.clientUuid ?? crypto.randomUUID())
-  // OFF-003 / AT-009: repetição do mesmo UUID → um único registo
+  // /: repetição do mesmo UUID → um único registo
   const existing = await db.expense.findUnique({ where: { clientUuid } })
   if (existing) {
     await db.syncRecord.updateMany({ where: { clientUuid }, data: { status: 'PROCESSED', processedAt: new Date() } })
@@ -58,7 +58,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   const trip = await db.trip.findUnique({ where: { id: tripId } })
   if (!trip || trip.companyId !== companyId) return jsonError(404, 'Viagem não encontrada.')
   if (['CLOSED', 'CANCELLED'].includes(trip.status))
-    return jsonError(409, 'Despesas não podem ser submetidas para viagem fechada sem reabertura controlada (§5.3).')
+    return jsonError(409, 'Despesas não podem ser submetidas para viagem fechada sem reabertura controlada.')
 
   const category = String(b.category ?? 'outros')
   if (!EXPENSE_CATEGORIES.includes(category as never)) return jsonError(400, 'Categoria inválida.')
@@ -69,13 +69,13 @@ export const POST = withAuth(async ({ ctx, req }) => {
   const company = await db.company.findUnique({ where: { id: companyId } })
   const base = company?.currencyBase ?? 'MZN'
 
-  // FIN-002/003: taxa com origem explícita; conversão reproduzível
+  ///003: taxa com origem explícita; conversão reproduzível
   let convertedMinor: number | null = null
   let rateApplied: string | null = null
   let rateSource: string | null = null
   if (currency !== base) {
     const rate = await resolveRate(companyId, currency, base, base)
-    if (!rate) return jsonError(400, `Sem taxa de câmbio registada para ${currency} → ${base}. Registe a taxa antes de submeter (FIN-003).`)
+    if (!rate) return jsonError(400, `Sem taxa de câmbio registada para ${currency} → ${base}. Registe a taxa antes de submeter.`)
     convertedMinor = convert(amountMinor, rate.rate)
     rateApplied = rate.rate
     rateSource = rate.source
@@ -83,7 +83,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
     convertedMinor = amountMinor
   }
 
-  // FR-060: sem comprovativo — excepção documentada apenas nas categorias aprovadas
+  //: sem comprovativo - excepção documentada apenas nas categorias aprovadas
   const noReceiptReason = (b.noReceiptReason as string) || null
   const requireReceipt = await getSetting<string[]>(companyId, 'require_receipt_categories')
   if (!b.attachmentId && !noReceiptReason && requireReceipt.includes(category))
@@ -91,7 +91,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
 
   const code = await nextCode(companyId, 'expense')
 
-  // FR-058 / AT-015: sinalizar duplicado potencial
+  // /: sinalizar duplicado potencial
   const dup = await detectDuplicate(companyId, {
     id: 'new', tripId, category, amountMinor, currency,
     expenseDate: new Date(String(b.expenseDate ?? new Date())),
@@ -135,7 +135,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
     await db.attachment.update({ where: { id: String(b.attachmentId) }, data: { expenseId: expense.id } })
   }
 
-  // FR-059 / FIN-011: comparação com orçamento e alerta
+  // /: comparação com orçamento e alerta
   const budget = await computeTripBudget(companyId, tripId)
   for (const a of budget.alerts) {
     await db.alert.create({
@@ -146,7 +146,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
     await db.alert.create({
       data: { companyId, severity: 'MEDIUM', type: 'DUPLICATE_EXPENSE',
         title: `Possível despesa duplicada (${Math.round(dup.score * 100)}%)`,
-        message: `Despesa ${code} assemelha-se a registo existente: ${dup.reasons.join(', ')}. Revisão humana necessária (AT-015).`,
+        message: `Despesa ${code} assemelha-se a registo existente: ${dup.reasons.join(', ')}. Revisão humana necessária.`,
         refType: 'EXPENSE', refId: expense.id },
     })
   }

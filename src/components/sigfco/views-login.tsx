@@ -1,5 +1,5 @@
-// SIGFCO — Autenticação (SEC-002): credenciais, credenciais DEMO visíveis
-// apenas no ambiente de demonstração (DEV-003 — nunca apresentadas como reais)
+// SIGFCO - Autenticação: credenciais, credenciais DEMO visíveis
+// apenas no ambiente de demonstração
 'use client'
 
 import * as React from 'react'
@@ -10,16 +10,17 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Lock, Info } from 'lucide-react'
+import { TemaBotao } from './tema-botao'
 
 export function LoginView({ aoEntrar }: { aoEntrar: () => void }) {
   const [email, setEmail] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [erro, setErro] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
-  const [demo, setDemo] = React.useState<{ seeded: boolean } | null>(null)
+  const [demo, setDemo] = React.useState<{ enabled: boolean; seeded: boolean } | null>(null)
 
   React.useEffect(() => {
-    api<{ seeded: boolean }>('/api/demo').then(setDemo).catch(() => setDemo({ seeded: false }))
+    api<{ enabled: boolean; seeded: boolean }>('/api/demo').then(setDemo).catch(() => setDemo({ enabled: false, seeded: false }))
   }, [])
 
   const submeter = async (e: React.FormEvent) => {
@@ -64,14 +65,17 @@ export function LoginView({ aoEntrar }: { aoEntrar: () => void }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100">
-      <div className="flex-1 flex items-center justify-center p-6">
+      <div className="flex justify-end p-3">
+        <TemaBotao className="text-zinc-300 hover:bg-zinc-800 hover:text-white" />
+      </div>
+      <div className="flex-1 flex items-start justify-center p-6 pt-0">
         <div className="grid w-full max-w-4xl gap-6 lg:grid-cols-2 items-start">
           <div className="space-y-6">
             <div className="space-y-4">
-              <img src="/brand/logo-sigfco-frotas.png" alt="SIGFCO — Sistema Integrado de Gestão de Frotas e Controlos Operacionais" className="h-28 w-auto max-w-full" />
+              <img src="/brand/logo-sigfco-frotas.png" alt="SIGFCO - Sistema Integrado de Gestão de Frotas e Controlos Operacionais" className="h-28 w-auto max-w-full" />
             </div>
             <p className="text-sm leading-relaxed text-zinc-400">
-              Plataforma integrada para viagens, frota, motoristas, despesas, manutenção, documentos e rastreio autónomo por GPS dedicado — Porto da Beira, EN6 e corredores transfronteiriços da África Austral.
+              Plataforma integrada para viagens, frota, motoristas, despesas, manutenção, documentos e rastreio autónomo por GPS dedicado - Porto da Beira, EN6 e corredores transfronteiriços da África Austral.
             </p>
             <ul className="space-y-2 text-sm text-zinc-300">
               <li className="flex gap-2"><Lock className="h-4 w-4 text-teal-500 shrink-0 mt-0.5" /> Rastreador dedicado no veículo como fonte primária de localização (não depende do telemóvel do motorista)</li>
@@ -105,13 +109,14 @@ export function LoginView({ aoEntrar }: { aoEntrar: () => void }) {
               </CardContent>
             </Card>
 
+            {demo?.enabled && (
             <Card className="bg-zinc-900/60 border-amber-600/40 border-dashed">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-amber-400"><Info className="h-4 w-4" /> Ambiente de demonstração (DEMO)</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2 text-amber-500"><Info className="h-4 w-4" /> Ambiente de demonstração</CardTitle>
                 <CardDescription className="text-xs text-zinc-400">
                   {demo?.seeded
-                    ? 'Dados fictícios claramente identificados (DEV-003). Palavra-passe de todas as contas: Sigfco2026!'
-                    : 'O ambiente DEMO ainda não foi preparado.'}
+                    ? 'Dados fictícios claramente identificados. Credenciais indicadas no Manual de Operação.'
+                    : 'O ambiente de demonstração ainda não foi preparado.'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -132,6 +137,7 @@ export function LoginView({ aoEntrar }: { aoEntrar: () => void }) {
                 )}
               </CardContent>
             </Card>
+            )}
           </div>
         </div>
       </div>

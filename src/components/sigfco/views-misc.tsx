@@ -1,4 +1,4 @@
-// SIGFCO — Relatórios, alertas (§15.2), auditoria (SEC-009) e configuração
+// SIGFCO - Relatórios, alertas, auditoria e configuração
 'use client'
 
 import * as React from 'react'
@@ -14,26 +14,26 @@ export function RelatoriosView() {
   const { sessao } = useApp()
   const podeExportar = ['FINANCE', 'COMPANY_ADMIN', 'PLATFORM_ADMIN', 'AUDITOR', 'FLEET_MANAGER', 'DISPATCHER', 'BRANCH_MANAGER'].includes(sessao.user.role)
   const EXPS = [
-    { type: 'expenses', label: 'Despesas (com moedas e taxas)', nota: 'Permissão financeira exigida; exportação auditada (AT-024).' },
+    { type: 'expenses', label: 'Despesas (com moedas e taxas)', nota: 'Permissão financeira exigida; exportação auditada.' },
     { type: 'fuel', label: 'Abastecimentos', nota: 'Litros, custos, odómetro e anomalias.' },
     { type: 'trips', label: 'Viagens', nota: 'Ciclo de vida, quilometragens e orçamento.' },
     { type: 'documents', label: 'Documentos', nota: 'Vencimentos, bloqueantes e estados.' },
   ]
   return (
-    <Page title="Relatórios e exportações" subtitle="Formato CSV; toda a exportação sensível é registada na auditoria (AT-024)" demo={sessao.company?.isDemo}>
+    <Page title="Relatórios e exportações" subtitle="Formato CSV; toda a exportação sensível é registada na auditoria" demo={sessao.company?.isDemo}>
       <div className="grid gap-3 sm:grid-cols-2">
         {EXPS.map((e) => (
           <Panel key={e.type} title={e.label} description={e.nota}
             actions={podeExportar && <Button size="sm" variant="outline" onClick={() => window.open(`/api/reports/export?type=${e.type}`, '_blank')}><Download className="mr-1.5 h-3.5 w-3.5" />CSV</Button>}>
-            <p className="text-xs text-muted-foreground">Filtros de período podem ser adicionados ao link de exportação (from/to). O ficheiro não é público — acesso exige sessão com permissão.</p>
+            <p className="text-xs text-muted-foreground">Filtros de período podem ser adicionados ao link de exportação (from/to). O ficheiro não é público - acesso exige sessão com permissão.</p>
           </Panel>
         ))}
       </div>
-      <Panel title="Fiabilidade dos indicadores (§15.3)">
+      <Panel title="Fiabilidade dos indicadores">
         <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
           <li>Cada indicador declara período, unidade, moeda, filtros e fontes.</li>
           <li>Custo por quilómetro não é calculado quando faltam despesas ou quilometragem.</li>
-          <li>Despesas pendentes não são somadas como aprovadas — relatórios distinguem estados.</li>
+          <li>Despesas pendentes não são somadas como aprovadas - relatórios distinguem estados.</li>
           <li>Tempo sem GPS não é contado como tempo parado.</li>
         </ul>
       </Panel>
@@ -65,7 +65,7 @@ export function AlertasView() {
   const FILTROS = [{ k: 'OPEN', l: 'Abertos' }, { k: 'ACK', l: 'Reconhecidos' }, { k: 'CLOSED', l: 'Encerrados' }, { k: '', l: 'Todos' }]
 
   return (
-    <Page title="Alertas" subtitle="Gravidades: crítico (impede acção), alto (notifica), médio (fila de trabalho), informativo (histórico) — §15.2" demo={sessao.company?.isDemo}>
+    <Page title="Alertas" subtitle="Gravidades: crítico (impede acção), alto (notifica), médio (fila de trabalho), informativo (histórico) -" demo={sessao.company?.isDemo}>
       <ErroAlerta erro={erro} />
       <div className="flex flex-wrap gap-2">
         {FILTROS.map((f) => <Button key={f.k} size="sm" variant={filtro === f.k ? 'default' : 'outline'} onClick={() => setFiltro(f.k)}>{f.l}</Button>)}
@@ -85,7 +85,7 @@ export function AlertasView() {
         ]} />
       </Panel>
       <Modal open={!!fechar} onOpenChange={(v) => !v && setFechar(null)} title="Encerrar alerta"
-        description={fechar?.severity === 'CRITICAL' || fechar?.severity === 'HIGH' ? 'Gravidade alta/crítica exige motivo registado (§15.2).' : 'Motivo opcional.'}
+        description={fechar?.severity === 'CRITICAL' || fechar?.severity === 'HIGH' ? 'Gravidade alta/crítica exige motivo registado.' : 'Motivo opcional.'}
         footer={
           <>
             <Button variant="outline" onClick={() => setFechar(null)}>Cancelar</Button>
@@ -114,7 +114,7 @@ export function AuditoriaView() {
   React.useEffect(() => { carregar() }, [carregar])
 
   return (
-    <Page title="Trilha de auditoria" subtitle="Quem fez o quê, quando, sobre que registo — com valores antes/depois quando relevante (§3.2, AT-019)">
+    <Page title="Trilha de auditoria" subtitle="Quem fez o quê, quando, sobre que registo - com valores antes/depois quando relevante">
       <ErroAlerta erro={erro} />
       <div className="flex flex-wrap gap-2">
         {[{ k: '', l: 'Tudo' }, { k: 'Trip', l: 'Viagens' }, { k: 'Expense', l: 'Despesas' }, { k: 'ExchangeRate', l: 'Câmbio' }, { k: 'User', l: 'Utilizadores' }, { k: 'GpsDevice', l: 'GPS' }, { k: 'Alert', l: 'Alertas' }].map((f) => (
@@ -127,9 +127,9 @@ export function AuditoriaView() {
           { key: 'user', header: 'Utilizador', render: (a) => a.userName ?? 'sistema' },
           { key: 'action', header: 'Acção', render: (a) => <Badge variant="outline">{a.action}</Badge> },
           { key: 'entity', header: 'Entidade', render: (a) => `${a.entity}${a.entityId ? ` · ${a.entityId.slice(0, 10)}…` : ''}` },
-          { key: 'reason', header: 'Motivo', render: (a) => a.reason ?? '—', hideOnMobile: true },
-          { key: 'after', header: 'Detalhe', render: (a) => a.afterJson ? <code className="text-[10px] break-all">{a.afterJson.slice(0, 90)}</code> : '—', hideOnMobile: true },
-          { key: 'ip', header: 'IP', render: (a) => a.ip ?? '—', hideOnMobile: true },
+          { key: 'reason', header: 'Motivo', render: (a) => a.reason ?? '-', hideOnMobile: true },
+          { key: 'after', header: 'Detalhe', render: (a) => a.afterJson ? <code className="text-[10px] break-all">{a.afterJson.slice(0, 90)}</code> : '-', hideOnMobile: true },
+          { key: 'ip', header: 'IP', render: (a) => a.ip ?? '-', hideOnMobile: true },
         ]} />
         <div className="mt-3 flex items-center gap-2">
           <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>Anterior</Button>
@@ -174,7 +174,7 @@ export function ConfiguracaoView() {
     catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao guardar.') }
   }
   const guardarParam = async (key: string, value: unknown) => {
-    try { await api('/api/company', { method: 'PATCH', body: { settings: { [key]: value } } }); setMsg(`Parâmetro ${key} actualizado (FR-003).`) }
+    try { await api('/api/company', { method: 'PATCH', body: { settings: { [key]: value } } }); setMsg(`Parâmetro ${key} actualizado.`) }
     catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao guardar parâmetro.') }
   }
   const criarUser = async () => {
@@ -201,7 +201,7 @@ export function ConfiguracaoView() {
   ]
 
   return (
-    <Page title="Configuração" subtitle="Empresa, parâmetros operacionais (FR-003), utilizadores e permissões (§4), sessões e cercas geográficas" demo={sessao.company?.isDemo}>
+    <Page title="Configuração" subtitle="Empresa, parâmetros operacionais, utilizadores e permissões, sessões e cercas geográficas" demo={sessao.company?.isDemo}>
       <ErroAlerta erro={erro} />
       {msg && <div className="rounded-md border border-teal-300 bg-teal-50 px-3 py-2 text-sm text-teal-900">{msg}</div>}
       <Tabs defaultValue="empresa">
@@ -213,21 +213,21 @@ export function ConfiguracaoView() {
           <TabsTrigger value="cercas">Cercas geográficas</TabsTrigger>
         </TabsList>
         <TabsContent value="empresa">
-          <Panel title="Dados da empresa (FR-002)">
+          <Panel title="Dados da empresa">
             <div className="grid gap-3 sm:grid-cols-2">
               <Campo label="Nome"><EntradaTexto value={String(company.name ?? '')} onChange={(e) => setCompany({ ...company, name: e.target.value })} /></Campo>
               <Campo label="Nome legal"><EntradaTexto value={String(company.legalName ?? '')} onChange={(e) => setCompany({ ...company, legalName: e.target.value })} /></Campo>
               <Campo label="NUIT"><EntradaTexto value={String(company.nuit ?? '')} onChange={(e) => setCompany({ ...company, nuit: e.target.value })} /></Campo>
               <Campo label="Telefone"><EntradaTexto value={String(company.phone ?? '')} onChange={(e) => setCompany({ ...company, phone: e.target.value })} /></Campo>
               <Campo label="Morada"><EntradaTexto value={String(company.address ?? '')} onChange={(e) => setCompany({ ...company, address: e.target.value })} /></Campo>
-              <Campo label="Moeda-base" hint="MZN por defeito (FIN-001)"><Selecao value={String(company.currencyBase ?? 'MZN')} onChange={(v) => setCompany({ ...company, currencyBase: v })} opcoes={[{ value: 'MZN', label: 'MZN' }]} /></Campo>
-              <Campo label="Fuso horário" hint="Hora de Moçambique (CAT, UTC+2) por defeito (§2.5)"><Selecao value={String(company.timezone ?? 'Africa/Maputo')} onChange={(v) => setCompany({ ...company, timezone: v })} opcoes={[{ value: 'Africa/Maputo', label: 'Hora de Moçambique (CAT)' }]} /></Campo>
+              <Campo label="Moeda-base" hint="MZN por defeito"><Selecao value={String(company.currencyBase ?? 'MZN')} onChange={(v) => setCompany({ ...company, currencyBase: v })} opcoes={[{ value: 'MZN', label: 'MZN' }]} /></Campo>
+              <Campo label="Fuso horário" hint="Hora de Moçambique (CAT, UTC+2) por defeito"><Selecao value={String(company.timezone ?? 'Africa/Maputo')} onChange={(v) => setCompany({ ...company, timezone: v })} opcoes={[{ value: 'Africa/Maputo', label: 'Hora de Moçambique (CAT)' }]} /></Campo>
             </div>
             <Button className="mt-3" onClick={guardarEmpresa}>Guardar</Button>
           </Panel>
         </TabsContent>
         <TabsContent value="parametros">
-          <Panel title="Parâmetros operacionais (FR-003)" description="Alteráveis por empresa sem alteração de código">
+          <Panel title="Parâmetros operacionais" description="Alteráveis por empresa sem alteração de código">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 { k: 'gps_stale_minutes', l: 'GPS "sem comunicação" após (min)' },
@@ -248,7 +248,7 @@ export function ConfiguracaoView() {
           </Panel>
         </TabsContent>
         <TabsContent value="utilizadores">
-          <Panel title={`Utilizadores (${users.length})`} description="Permissões verificadas em cada chamada ao servidor — esconder botões não é segurança (§4.1)"
+          <Panel title={`Utilizadores (${users.length})`} description="Permissões verificadas em cada chamada ao servidor - esconder botões não é segurança"
             actions={<Button size="sm" onClick={() => setNovoUser(true)}>Novo utilizador</Button>}>
             <DataTable rows={users} columns={[
               { key: 'name', header: 'Nome', render: (u) => <span className="font-medium">{u.name}{u.isDemo && <Badge variant="outline" className="ml-1.5 border-amber-500 text-amber-600">DEMO</Badge>}</span> },
@@ -263,7 +263,7 @@ export function ConfiguracaoView() {
             ]} />
           </Panel>
           <Modal open={novoUser} onOpenChange={setNovoUser} title="Novo utilizador"
-            description="Palavra-passe: mínimo 8 caracteres com letras e números (SEC-002)."
+            description="Palavra-passe: mínimo 8 caracteres com letras e números."
             footer={<><Button variant="outline" onClick={() => setNovoUser(false)}>Cancelar</Button><Button onClick={criarUser}>Criar</Button></>}>
             <div className="grid gap-3 sm:grid-cols-2">
               <Campo label="Nome" required><EntradaTexto value={formU.name ?? ''} onChange={(e) => setFormU({ ...formU, name: e.target.value })} /></Campo>
@@ -274,11 +274,11 @@ export function ConfiguracaoView() {
           </Modal>
         </TabsContent>
         <TabsContent value="sessoes">
-          <Panel title="Sessões activas" description="Revogação imediata em caso de perda de telemóvel ou saída de trabalhador (§4.1)"
+          <Panel title="Sessões activas" description="Revogação imediata em caso de perda de telemóvel ou saída de trabalhador"
             actions={<Button size="sm" variant="outline" className="text-red-700" onClick={() => setRevogarTodos(true)}>Revogar outras sessões</Button>}>
             <DataTable rows={sessions} columns={[
-              { key: 'device', header: 'Dispositivo', render: (s) => <span className="text-xs">{(s.device ?? '—').slice(0, 70)}</span> },
-              { key: 'ip', header: 'IP', render: (s) => s.ip ?? '—' },
+              { key: 'device', header: 'Dispositivo', render: (s) => <span className="text-xs">{(s.device ?? '-').slice(0, 70)}</span> },
+              { key: 'ip', header: 'IP', render: (s) => s.ip ?? '-' },
               { key: 'last', header: 'Visto', render: (s) => fmtData(s.lastSeenAt, true) },
             ]} />
           </Panel>
@@ -287,7 +287,7 @@ export function ConfiguracaoView() {
             onConfirm={revogar} />
         </TabsContent>
         <TabsContent value="cercas">
-          <Panel title={`Cercas geográficas (${fences.length})`} description="Entradas/saídas geram eventos no mapa e alertas informativos (GPS-022)"
+          <Panel title={`Cercas geográficas (${fences.length})`} description="Entradas/saídas geram eventos no mapa e alertas informativos"
             actions={<Button size="sm" onClick={() => setNovaFence(true)}>Nova cerca</Button>}>
             <DataTable rows={fences} columns={[
               { key: 'name', header: 'Nome', render: (f) => <span className="font-medium">{f.name}</span> },

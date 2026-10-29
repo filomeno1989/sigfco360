@@ -1,10 +1,10 @@
 // =====================================================================
-// SIGFCO — App do Motorista (§8, MOB-001..005, OFF-001..010)
+// SIGFCO - App do Motorista
 // Offline-first: registos em IndexedDB com UUID; estados visíveis
-// ("Guardado neste telemóvel" → "Sincronizado" — OFF-006); fotos
-// comprimidas (AT-011); reenvio idempotente (AT-009); SOS discreto com
-// confirmação (GPS-026); aviso de não usar o telemóvel em movimento
-// (MOB-005). Limitações de PWA declaradas sem falsas promessas (§8.3).
+//; fotos
+// comprimidas; reenvio idempotente; SOS discreto com
+// confirmação; aviso de não usar o telemóvel em movimento
+//. Limitações de PWA declaradas sem falsas promessas.
 // =====================================================================
 'use client'
 
@@ -69,7 +69,7 @@ export function MotoristaApp() {
     const on = () => setOnline(true), off = () => setOnline(false)
     window.addEventListener('online', on); window.addEventListener('offline', off)
     const limpar = iniciarAutoSync(refrescarFila)
-    // FR-052: estado da localização no momento do registo
+    //: estado da localização no momento do registo
     if ('geolocation' in navigator) {
       navigator.permissions?.query({ name: 'geolocation' as PermissionName }).then((p) => {
         setGpsOk(p.state === 'granted' ? 'ok' : p.state === 'denied' ? 'negado' : 'indisponivel')
@@ -81,15 +81,17 @@ export function MotoristaApp() {
   const pendentes = fila.filter((f) => f.estadoLocal !== 'SINCRONIZADO')
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-100 pb-16">
-      {/* Cabeçalho compacto (MOB-004: uso com uma mão) */}
+    <div className="min-h-screen flex flex-col bg-background pb-16">
+      {/* Cabeçalho compacto */}
       <header className="sticky top-0 z-20 bg-zinc-950 text-zinc-100 px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-sm font-bold">SF</span>
+            <span className="flex h-8 w-9 items-center justify-center overflow-hidden rounded-lg bg-white p-1 shadow-sm">
+              <img src="/brand/logo-sigfco.png" alt="SIGFCO" className="h-full w-auto object-contain" />
+            </span>
             <div>
               <div className="text-sm font-semibold leading-tight">{sessao.driver?.name ?? sessao.user.name.split(' (')[0]}</div>
-              <div className="text-[11px] text-zinc-400">App do Motorista • DEMO</div>
+              <div className="text-[11px] text-zinc-400">App do Motorista{sessao.company?.isDemo ? ' • DEMO' : ''}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -99,7 +101,7 @@ export function MotoristaApp() {
         </div>
       </header>
 
-      {/* Aviso de segurança (MOB-005) */}
+      {/* Aviso de segurança */}
       <div className="bg-amber-100 border-b border-amber-300 px-4 py-1.5 text-[11px] text-amber-900 text-center">
         <ShieldAlert className="inline h-3 w-3 mr-1" />Nunca use o telemóvel enquanto conduz. Interaja apenas com o veículo parado em local seguro.
       </div>
@@ -107,7 +109,7 @@ export function MotoristaApp() {
       <main className="flex-1 mx-auto w-full max-w-lg px-3 py-3 space-y-3">
         <ErroAlerta erro={erro} />
 
-        {/* Indicadores precisos de GPS e rede (§11.2) */}
+        {/* Indicadores precisos de GPS e rede */}
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="rounded-lg bg-white border p-2.5 flex items-center gap-2">
             <MapPin className={`h-4 w-4 ${gpsOk === 'ok' ? 'text-emerald-600' : 'text-amber-600'}`} />
@@ -126,7 +128,7 @@ export function MotoristaApp() {
         {vista === 'fila' && <FilaSincronizacao fila={fila} refrescar={refrescarFila} />}
       </main>
 
-      {/* Navegação inferior — alvos tácteis ≥44px (MOB-004) */}
+      {/* Navegação inferior - alvos tácteis ≥44px */}
       <nav className="fixed bottom-0 inset-x-0 z-20 bg-white border-t grid grid-cols-3">
         {[
           { id: 'viagem', label: 'Viagem', icon: Route },
@@ -200,11 +202,11 @@ function ViagemActiva({ detail, aoMudar, gpsOk }: { detail: Detail; aoMudar: () 
     try {
       const pos = gpsOk === 'ok' ? await obterPosicao() : null
       const uuid = novoUuid()
-      // SOS funciona OFFLINE: entra na fila com hora original do dispositivo (OFF-001)
+      // SOS funciona OFFLINE: entra na fila com hora original do dispositivo
       await filaGuardar({
         clientUuid: uuid, type: 'TRIP_EVENT', deviceTime: new Date().toISOString(),
         payload: { tripId: trip.id, type: 'SOS', note: sosNota || 'Pedido de ajuda (SOS)', lat: pos?.lat, lng: pos?.lng, locSource: pos ? 'BROWSER' : 'NONE', locStatus: pos ? 'OK' : 'UNAVAILABLE' },
-        estadoLocal: 'GUARDADO', tentativas: 0, resumo: `SOS — ${trip.code}`,
+        estadoLocal: 'GUARDADO', tentativas: 0, resumo: `SOS - ${trip.code}`,
       })
       setSos(false); setSosNota('')
       setMsg('SOS registado. Será enviado assim que houver internet.')
@@ -233,11 +235,11 @@ function ViagemActiva({ detail, aoMudar, gpsOk }: { detail: Detail; aoMudar: () 
         </CardContent>
       </Card>
 
-      {/* Accões rápidas (§11.2: despesa, foto, incidente, checklist, SOS) */}
+      {/* Accões rápidas */}
       {trip.status === 'AWAITING_CHECKLIST' && (
         <Card>
           <CardContent className="pt-5 space-y-2.5">
-            <div className="font-semibold text-sm">Checklist pré-partida — confirme cada item</div>
+            <div className="font-semibold text-sm">Checklist pré-partida - confirme cada item</div>
             <p className="text-xs text-muted-foreground">O carregador de telemóvel é obrigatório: sem ele a viagem não é autorizada (requisito crítico).</p>
             {checklist.map((i) => (
               <label key={i.key} className={`flex items-start gap-2.5 rounded-lg border p-3 text-sm ${respostas[i.key] === false && i.blocking ? 'border-red-300 bg-red-50' : ''}`}>
@@ -281,15 +283,15 @@ function ViagemActiva({ detail, aoMudar, gpsOk }: { detail: Detail; aoMudar: () 
       )}
 
       {trip.status === 'ARRIVED' && (
-        <Card><CardContent className="pt-5 text-sm text-muted-foreground">Chegada registada. Aguarde a revisão do escritório — o fecho é feito pela equipa após conferência de despesas (FR-038).</CardContent></Card>
+        <Card><CardContent className="pt-5 text-sm text-muted-foreground">Chegada registada. Aguarde a revisão do escritório - o fecho é feito pela equipa após conferência de despesas.</CardContent></Card>
       )}
 
       <Button variant="outline" className="w-full min-h-[48px] border-red-300 text-red-700 hover:bg-red-50" onClick={() => setSos(true)}>
-        <Siren className="mr-2 h-4 w-4" />SOS — pedir ajuda
+        <Siren className="mr-2 h-4 w-4" />SOS - pedir ajuda
       </Button>
       <Confirmacao open={sos} onOpenChange={setSos} perigo exigirTexto="SOS"
         titulo="Confirmar SOS"
-        mensagem="Serão enviados a viagem, coordenadas disponíveis e a hora do dispositivo. Confirme apenas em situação real — uso acidental mobiliza resposta (GPS-026)."
+        mensagem="Serão enviados a viagem, coordenadas disponíveis e a hora do dispositivo. Confirme apenas em situação real - uso acidental mobiliza resposta."
         onConfirm={enviarSos} />
     </>
   )
@@ -332,14 +334,14 @@ function DespesasMotorista({ detail, aoMudar, refrescarFila, gpsOk, online }: {
         estadoLocal: 'GUARDADO', tentativas: 0,
         resumo: `${CATS.find((c) => c.value === form.categoria)?.label}: ${fmtMT(valorMinor, form.moeda)}`,
       })
-      // tentar sincronizar imediatamente quando há rede (OFF-005)
+      // tentar sincronizar imediatamente quando há rede
       if (online && enviar) {
         const { sincronizar } = await import('@/lib/client/offline')
         await sincronizar()
       }
       setForm({ categoria: 'combustivel', valor: '', moeda: 'MZN', litros: '', preco: '', posto: '', descricao: '', semComprovativo: '' })
       setFoto(null); setAberto(false)
-      setMsg(online ? 'Despesa guardada e submetida.' : 'Despesa guardada NESTE TELEMÓVEL — será enviada automaticamente quando houver internet.')
+      setMsg(online ? 'Despesa guardada e submetida.' : 'Despesa guardada NESTE TELEMÓVEL - será enviada automaticamente quando houver internet.')
       refrescarFila(); aoMudar()
     } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao guardar despesa.') }
     finally { setBusy(false) }
@@ -383,7 +385,7 @@ function DespesasMotorista({ detail, aoMudar, refrescarFila, gpsOk, online }: {
         </CardContent>
       </Card>
 
-      {/* Formulário de despesa: poucos campos por etapa (MOB-004) */}
+      {/* Formulário de despesa: poucos campos por etapa */}
       <Dialog open={aberto} onOpenChange={setAberto}>
         <DialogContent className="max-h-[92vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Registar despesa</DialogTitle></DialogHeader>
@@ -436,12 +438,12 @@ function DespesasMotorista({ detail, aoMudar, refrescarFila, gpsOk, online }: {
             </div>
             {!foto && (
               <div className="space-y-1.5">
-                <Label>Sem comprovativo — justificação (se autorizada pela política)</Label>
+                <Label>Sem comprovativo - justificação (se autorizada pela política)</Label>
                 <Input value={form.semComprovativo} onChange={(e) => setForm({ ...form, semComprovativo: e.target.value })} placeholder="Ex.: posto sem máquina fiscal" className="min-h-[48px]" />
               </div>
             )}
             <div className="text-xs text-muted-foreground">
-              {gpsOk === 'ok' ? 'A localização será anexada ao registo (FR-052).' : gpsOk === 'negado' ? 'GPS sem permissão — a despesa será sinalizada para revisão (motivo exigido).' : 'Sem fixação GPS — será registado o motivo e sinalizado para revisão.'}
+              {gpsOk === 'ok' ? 'A localização será anexada ao registo.' : gpsOk === 'negado' ? 'GPS sem permissão - a despesa será sinalizada para revisão (motivo exigido).' : 'Sem fixação GPS - será registado o motivo e sinalizado para revisão.'}
             </div>
           </div>
           <DialogFooter className="flex-col gap-2 sm:flex-col">
@@ -483,12 +485,12 @@ function FilaSincronizacao({ fila, refrescar }: { fila: FilaItem[]; refrescar: (
       <Card>
         <CardContent className="pt-4 space-y-2">
           <div className="flex items-center justify-between">
-            <div className="font-semibold text-sm">Fila de sincronização (OFF-006)</div>
+            <div className="font-semibold text-sm">Fila de sincronização</div>
             <Button size="sm" variant="outline" disabled={busy} onClick={sincronizarAgora}><RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} />Tentar agora</Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Registos guardados no armazenamento permanente do telemóvel — sobrevivem a fecho da aplicação ou reinício (AT-010).
-            O envio é automático quando a internet regressa; cada registo só é marcado como enviado após confirmação do servidor (OFF-004).
+            Registos guardados no armazenamento permanente do telemóvel - sobrevivem a fecho da aplicação ou reinício.
+            O envio é automático quando a internet regressa; cada registo só é marcado como enviado após confirmação do servidor.
           </p>
         </CardContent>
       </Card>

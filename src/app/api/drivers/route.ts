@@ -1,4 +1,4 @@
-// SIGFCO — Motoristas (FR-020..023): ficha, elegibilidade, histórico restrito
+// SIGFCO - Motoristas: ficha, elegibilidade, histórico restrito
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { recomputeVehicleState } from '@/lib/veiculo'
@@ -37,7 +37,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
     data: {
       companyId, code, name: b.name.trim(),
       phone: b.phone || null,
-      emergencyContact: b.emergencyContact || null, // FR-020: apenas quando autorizado
+      emergencyContact: b.emergencyContact || null, //: apenas quando autorizado
       licenseNumber: b.licenseNumber || null,
       licenseCategory: b.licenseCategory || null,
       licenseExpiry: b.licenseExpiry ? new Date(b.licenseExpiry) : null,

@@ -1,4 +1,4 @@
-// SIGFCO — Mapa da frota: último ponto + frescura inequívoca (GPS-012, GPS-020)
+// SIGFCO - Mapa da frota: último ponto + frescura inequívoca
 import { withAuth, jsonOk, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { computeFreshness } from '@/lib/gps'

@@ -1,4 +1,4 @@
-// SIGFCO — Ocorrências/incidentes (§2.3, FR-036) — idempotentes via clientUuid
+// SIGFCO - Ocorrências/incidentes - idempotentes via clientUuid
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { INCIDENT_TYPES } from '@/lib/constantes'

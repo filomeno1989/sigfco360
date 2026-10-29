@@ -1,18 +1,18 @@
 // =====================================================================
-// SIGFCO — GPS, telemetria e rastreio autónomo (§7, GPS-001..027)
-//
+// SIGFCO - GPS, telemetria e rastreio autónomo
+
 // ARQUITECTURA (REQUISITO OBRIGATÓRIO):
 //  · O rastreador GNSS dedicado instalado no camião é a FONTE PRIMÁRIA.
 //    O telemóvel é fonte complementar (fonte=MOBILE) e nunca substitui
-//    o equipamento (DEV-005).
+//    o equipamento.
 //  · Store-and-forward: o endpoint de ingestão aceita pontos em lote
 //    com timestamps originais; deduplicação por (deviceId, seq); pontos
-//    atrasados mantêm gnssTime original e recebem isHistoric (GPS-003,
-//    AT-005, NFR-012).
-//  · Adaptador por fornecedor (GPS-008/ARC-002): a interface abaixo é
-//    o ponto único de ligação de um fornecedor real — o protocolo do
+//    atrasados mantêm gnssTime original e recebem isHistoric (,
+//).
+//  · Adaptador por fornecedor: a interface abaixo é
+//    o ponto único de ligação de um fornecedor real - o protocolo do
 //    fornecedor é convertido para NormalizedPoint e entregue ao
-//    processador comum. O simulador DEMO usa a mesma via (DEV-003).
+//    processador comum. O simulador DEMO usa a mesma via.
 // =====================================================================
 import 'server-only'
 import { db } from '@/lib/db'
@@ -20,7 +20,7 @@ import { getSetting } from './numeracao'
 import { audit } from './api'
 import type { Freshness } from './constantes'
 
-// ------------------------- Interface de fornecedor (GPS-008) ---------
+// ------------------------- Interface de fornecedor ---------
 export type NormalizedPoint = {
   deviceSerial: string
   lat: number
@@ -40,11 +40,11 @@ export type ProviderAdapter = {
   vendor: string
   /** Converte o payload bruto do fornecedor em pontos normalizados. */
   parse: (payload: unknown) => NormalizedPoint[]
-  /** Validação leve antes de gravar; não inventa compatibilidade (DEV-009). */
+  /** Validação leve antes de gravar; não inventa compatibilidade. */
   validate?: (payload: unknown) => { ok: boolean; error?: string }
 }
 
-/** Adaptador genérico JSON — usado pelo simulador DEMO e por integrações
+/** Adaptador genérico JSON - usado pelo simulador DEMO e por integrações
  *  simples de teste. Um fornecedor real (Teltonika, Queclink, etc.)
  *  acrescentaria o seu adapter SEM alterar os módulos de viagem/despesas. */
 export const GenericJsonAdapter: ProviderAdapter = {
@@ -76,10 +76,10 @@ export const GenericJsonAdapter: ProviderAdapter = {
 export const adapters: Record<string, ProviderAdapter> = {
   'generic-json': GenericJsonAdapter,
   // 'teltonika':  { id:'teltonika', vendor:'Teltonika', parse: ... },   // ← ponto de ligação do fornecedor real
-  // 'queclink':   { id:'queclink', vendor:'Queclink', parse: ... },    // ← homologação pendente (ARC-005)
+  // 'queclink':   { id:'queclink', vendor:'Queclink', parse: ... },    // ← homologação pendente
 }
 
-// ------------------------- Qualidade (GPS-014) -----------------------
+// ------------------------- Qualidade -----------------------
 function detectQualityFlags(
   point: { lat: number; lng: number; speedKmh?: number; accuracyM?: number; gnssTime: Date },
   prev?: { lat: number; lng: number; gnssTime: Date } | null
@@ -153,7 +153,7 @@ export async function ingestPoints(
       if (p.powerEvent) await handlePowerEvent(companyId, device, p)
       prev = { lat: p.lat, lng: p.lng, gnssTime: p.gnssTime }
     } catch (e) {
-      // violação de @@unique(deviceId, seq) → duplicado reenviado (AT-005)
+      // violação de @@unique(deviceId, seq) → duplicado reenviado
       if (String(e).includes('Unique constraint')) result.duplicates++
       else { result.rejected++; console.error('[gps] ponto rejeitado', e) }
     }
@@ -174,7 +174,7 @@ async function handlePowerEvent(
   device: { id: string; serial: string; vehicleId: string | null },
   p: NormalizedPoint
 ) {
-  // GPS-007: distinguir "sem rede" de "sem alimentação" — evento crítico
+  //: distinguir "sem rede" de "sem alimentação" - evento crítico
   if (p.powerEvent === 'MAIN_LOST' || p.powerEvent === 'TAMPER') {
     await db.gpsDevice.update({ where: { id: device.id }, data: { status: p.powerEvent === 'MAIN_LOST' ? 'NO_POWER' : 'TAMPER_ALERT' } })
     await createAlert(companyId, {
@@ -187,7 +187,7 @@ async function handlePowerEvent(
   }
 }
 
-// ------------------------- Geofences (GPS-022) -----------------------
+// ------------------------- Geofences -----------------------
 async function evaluateGeofences(
   companyId: string,
   device: { id: string; serial: string; vehicleId: string | null },
@@ -223,7 +223,7 @@ async function evaluateGeofences(
   return generated
 }
 
-// ------------------------- Alertas (§15.2) ---------------------------
+// ------------------------- Alertas ---------------------------
 export async function createAlert(companyId: string, a: {
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'INFO'
   type: string
@@ -249,7 +249,7 @@ export async function createAlert(companyId: string, a: {
   })
 }
 
-// ------------------------- Frescura (GPS-012, AT-006, AT-021) --------
+// ------------------------- Frescura --------
 export function computeFreshness(lastPointAt: Date | null | null, staleMinutes: number, delayedMinutes: number, isHistoric?: boolean): Freshness {
   if (!lastPointAt) return 'NO_COMMUNICATION'
   if (isHistoric) return 'HISTORIC'
@@ -259,8 +259,8 @@ export function computeFreshness(lastPointAt: Date | null | null, staleMinutes: 
   return 'LIVE'
 }
 
-/** Verificação periódica de lacunas de telemetria em viagem activa (AT-021:
- *  sem dados ≠ sem movimento — alerta apenas assinala falta de telemetria). */
+/** Verificação periódica de lacunas de telemetria em viagem activa (:
+ *  sem dados ≠ sem movimento - alerta apenas assinala falta de telemetria). */
 export async function checkStalledTrips(companyId: string) {
   const staleMinutes = await getSetting<number>(companyId, 'gps_stale_minutes')
   const threshold = new Date(Date.now() - staleMinutes * 60_000)
@@ -278,7 +278,7 @@ export async function checkStalledTrips(companyId: string) {
       await createAlert(companyId, {
         severity: 'HIGH', type: 'GPS_STALLED',
         title: 'Interrupção de telemetria em viagem activa',
-        message: `Sem pontos do rastreador ${d.serial} há mais de ${staleMinutes} min (viagem ${activeTrip.code}). Falta de telemetria não implica veículo parado ou avariado (GPS-027).`,
+        message: `Sem pontos do rastreador ${d.serial} há mais de ${staleMinutes} min (viagem ${activeTrip.code}). Falta de telemetria não implica veículo parado ou avariado.`,
         refType: 'DEVICE', refId: d.id, vehicleId: d.vehicleId, tripId: activeTrip.id,
       })
     }

@@ -1,5 +1,5 @@
 // =====================================================================
-// SIGFCO — Viagens (FR-030..044, §5.1): planeamento com verificação de
+// SIGFCO - Viagens: planeamento com verificação de
 // conflitos, checklist pré-partida com carregador obrigatório, eventos,
 // orçamento por rubrica/moeda, despesas da viagem e fecho reconciliado
 // =====================================================================
@@ -60,7 +60,7 @@ export function ViagensView() {
   React.useEffect(() => { carregar(); const t = setInterval(carregar, 30_000); return () => clearInterval(t) }, [carregar])
 
   return (
-    <Page title="Viagens" subtitle="Do planeamento ao fecho financeiro — ciclo de vida verificado no servidor (§5.1)"
+    <Page title="Viagens" subtitle="Do planeamento ao fecho financeiro - ciclo de vida verificado no servidor"
       actions={!isDriver && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Nova viagem</Button>}
       demo={sessao.company?.isDemo && !isDriver}>
       <ErroAlerta erro={erro} />
@@ -71,7 +71,7 @@ export function ViagensView() {
           columns={[
             { key: 'code', header: 'Código', render: (t) => <span className="font-medium">{t.code}{t.isDemo && <Badge variant="outline" className="ml-1.5 border-amber-500 text-amber-600">DEMO</Badge>}</span> },
             { key: 'rota', header: 'Rota', render: (t) => `${t.origin} → ${t.destination}` },
-            { key: 'client', header: 'Cliente', render: (t) => t.client ?? '—', hideOnMobile: true },
+            { key: 'client', header: 'Cliente', render: (t) => t.client ?? '-', hideOnMobile: true },
             { key: 'recursos', header: 'Veículo / Motorista', render: (t) => <div><div>{t.vehicle?.plate}</div><div className="text-xs text-muted-foreground">{t.driver?.name}</div></div> },
             { key: 'plannedStart', header: 'Início previsto', render: (t) => fmtData(t.plannedStart, true), hideOnMobile: true },
             { key: 'status', header: 'Estado', render: (t) => <StatusBadge estado={t.status} mapa={{}} /> },
@@ -127,7 +127,7 @@ function NovaViagem({ open, onOpenChange, aoCriar }: { open: boolean; onOpenChan
 
   return (
     <Modal open={open} onOpenChange={onOpenChange} title="Nova viagem" wide
-      description="Antes de planear, o sistema verifica automaticamente elegibilidade, documentos, rastreador e conflitos de recursos (FR-032)."
+      description="Antes de planear, o sistema verifica automaticamente elegibilidade, documentos, rastreador e conflitos de recursos."
       footer={
         <>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
@@ -147,13 +147,13 @@ function NovaViagem({ open, onOpenChange, aoCriar }: { open: boolean; onOpenChan
         <Campo label="Referência da carga"><EntradaTexto value={form.cargoRef ?? ''} onChange={(e) => setForm({ ...form, cargoRef: e.target.value })} /></Campo>
         <Campo label="Origem" required><EntradaTexto value={form.origin ?? 'Porto da Beira'} onChange={(e) => setForm({ ...form, origin: e.target.value })} /></Campo>
         <Campo label="Destino" required hint="Ex.: Harare, Zimbabwe"><EntradaTexto value={form.destination ?? ''} onChange={(e) => setForm({ ...form, destination: e.target.value })} /></Campo>
-        <Campo label="Motorista" required hint="Inelegíveis aparecem mas serão bloqueados na validação (FR-021)">
+        <Campo label="Motorista" required hint="Inelegíveis aparecem mas serão bloqueados na validação">
           <Selecao value={form.driverId ?? ''} onChange={(v) => setForm({ ...form, driverId: v })}
-            opcoes={[{ value: '', label: 'Seleccionar…' }, ...drivers.map((d) => ({ value: d.id, label: `${d.name}${d.eligible ? '' : ' — INELEGÍVEL'}` }))]} />
+            opcoes={[{ value: '', label: 'Seleccionar…' }, ...drivers.map((d) => ({ value: d.id, label: `${d.name}${d.eligible ? '' : ' - INELEGÍVEL'}` }))]} />
         </Campo>
-        <Campo label="Veículo" required hint="Precisa de rastreador operacional (GPS-001)">
+        <Campo label="Veículo" required hint="Precisa de rastreador operacional">
           <Selecao value={form.vehicleId ?? ''} onChange={(v) => setForm({ ...form, vehicleId: v })}
-            opcoes={[{ value: '', label: 'Seleccionar…' }, ...vehicles.map((v) => ({ value: v.id, label: `${v.plate}${v.device ? '' : ' — SEM RASTREADOR'}` }))]} />
+            opcoes={[{ value: '', label: 'Seleccionar…' }, ...vehicles.map((v) => ({ value: v.id, label: `${v.plate}${v.device ? '' : ' - SEM RASTREADOR'}` }))]} />
         </Campo>
         <Campo label="Reboque"><Selecao value={form.trailerId ?? ''} onChange={(v) => setForm({ ...form, trailerId: v })} opcoes={[{ value: '', label: 'Nenhum' }, ...trailers.map((t) => ({ value: t.id, label: t.plate }))]} /></Campo>
         <Campo label="Carga / descrição"><EntradaTexto value={form.cargoDesc ?? ''} onChange={(e) => setForm({ ...form, cargoDesc: e.target.value })} /></Campo>
@@ -164,10 +164,10 @@ function NovaViagem({ open, onOpenChange, aoCriar }: { open: boolean; onOpenChan
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <b className="text-sm">Orçamento por rubrica (FR-033/034)</b>
+          <b className="text-sm">Orçamento por rubrica</b>
           <Button size="sm" variant="outline" onClick={() => setRubricas([...rubricas, { category: 'combustivel', currency: 'MZN', valor: '' }])}><Plus className="mr-1 h-3.5 w-3.5" />Rubrica</Button>
         </div>
-        {rubricas.length === 0 && <p className="text-xs text-muted-foreground">Sem rubricas — pode adicionar depois.</p>}
+        {rubricas.length === 0 && <p className="text-xs text-muted-foreground">Sem rubricas - pode adicionar depois.</p>}
         {rubricas.map((r, i) => (
           <div key={i} className="grid grid-cols-[1fr_110px_1fr_auto] gap-2 items-end">
             <Selecao value={r.category} onChange={(v) => setRubricas(rubricas.map((x, j) => j === i ? { ...x, category: v } : x))} opcoes={CATS} />
@@ -211,7 +211,7 @@ function TripDetail({ tripId, onOpenChange, aoMudar }: { tripId: string | null; 
     } catch (e) {
       const err = e as Error & { payload?: { blockers?: string[]; pending?: string[] } }
       const blocks = err.payload?.blockers ?? err.payload?.pending
-      setErro(blocks?.length ? `${err.message} — ${blocks.join('; ')}` : err.message)
+      setErro(blocks?.length ? `${err.message} - ${blocks.join('; ')}` : err.message)
     } finally { setBusy(false); setConfirmar(null) }
   }
 
@@ -235,32 +235,32 @@ function TripDetail({ tripId, onOpenChange, aoMudar }: { tripId: string | null; 
             <span className="text-xs text-muted-foreground">Previsto: {fmtData(t!.plannedStart, true)}</span>
           </div>
 
-          {/* Accões do ciclo de vida — visíveis apenas quando permitidas (DEV-004) */}
+          {/* Accões do ciclo de vida - visíveis apenas quando permitidas */}
           {!isDriver && (
             <Panel title="Acções do ciclo de vida">
               <div className="flex flex-wrap gap-2">
                 {t!.status === 'DRAFT' && <Button size="sm" onClick={() => agir('plan')}>Validar e planear</Button>}
                 {t!.status === 'PLANNED' && <Button size="sm" onClick={() => agir('send_to_checklist')}>Enviar para checklist pré-partida</Button>}
                 {t!.status === 'AWAITING_CHECKLIST' && (
-                  <Button size="sm" variant="outline" disabled title="A autorização exige checklist aprovada (FR-035) — sem bypass (FR-044)">
+                  <Button size="sm" variant="outline" disabled title="A autorização exige checklist aprovada - sem bypass">
                     Autorizar partida (bloqueado até checklist)
                   </Button>
                 )}
                 {t!.status === 'AWAITING_CHECKLIST' && detail && <Button size="sm" disabled>{'Checklist pendente'}</Button>}
                 {t!.status === 'IN_TRANSIT' && (
-                  <Button size="sm" variant="outline" onClick={() => setConfirmar({ action: 'pause', titulo: 'Registar pausa/retida', mensagem: 'Registe motivo, local e previsão (§5.1).', pedirMotivo: true })}>Registar pausa</Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfirmar({ action: 'pause', titulo: 'Registar pausa/retida', mensagem: 'Registe motivo, local e previsão.', pedirMotivo: true })}>Registar pausa</Button>
                 )}
                 {t!.status === 'PAUSED' && <Button size="sm" onClick={() => agir('resume')}>Retomar trânsito</Button>}
                 {t!.status !== 'DRAFT' && !['CLOSED', 'CANCELLED'].includes(t!.status) && (
-                  <Button size="sm" variant="outline" className="text-red-700" onClick={() => setConfirmar({ action: 'cancel', titulo: 'Cancelar viagem', mensagem: 'O cancelamento exige motivo e fica registado no histórico (§5.1).', perigo: true, pedirMotivo: true })}>Cancelar viagem</Button>
+                  <Button size="sm" variant="outline" className="text-red-700" onClick={() => setConfirmar({ action: 'cancel', titulo: 'Cancelar viagem', mensagem: 'O cancelamento exige motivo e fica registado no histórico.', perigo: true, pedirMotivo: true })}>Cancelar viagem</Button>
                 )}
               </div>
             </Panel>
           )}
 
-          {/* Partida / chegada — motorista ou escritório */}
+          {/* Partida / chegada - motorista ou escritório */}
           {['AUTHORIZED_DEPARTURE', 'IN_TRANSIT', 'PAUSED'].includes(t!.status) && (
-            <Panel title={t!.status === 'AUTHORIZED_DEPARTURE' ? 'Registar partida (FR-036)' : 'Registar chegada'}>
+            <Panel title={t!.status === 'AUTHORIZED_DEPARTURE' ? 'Registar partida' : 'Registar chegada'}>
               {t!.status === 'AUTHORIZED_DEPARTURE' ? (
                 <div className="flex flex-wrap items-end gap-2">
                   <Campo label="Odómetro de partida (km)" required><EntradaTexto type="number" value={odoPartida} onChange={(e) => setOdoPartida(e.target.value)} /></Campo>
@@ -280,7 +280,7 @@ function TripDetail({ tripId, onOpenChange, aoMudar }: { tripId: string | null; 
 
           {/* Orçamento */}
           {detail.budget && !isDriver && (
-            <Panel title="Orçamento vs realizado (FIN-010)" description="Pendentes e aprovados apresentados separadamente (§15.3)">
+            <Panel title="Orçamento vs realizado" description="Pendentes e aprovados apresentados separadamente">
               <div className="grid gap-3 sm:grid-cols-3 mb-3">
                 <Kpi label="Limite" value={fmtMT(detail.budget.totalLimit, detail.budget.baseCurrency)} />
                 <Kpi label="Pendente" value={fmtMT(detail.budget.totalPending, detail.budget.baseCurrency)} tone="warn" />
@@ -343,7 +343,7 @@ function TripDetail({ tripId, onOpenChange, aoMudar }: { tripId: string | null; 
 
           {/* Fecho */}
           {!isDriver && ['ARRIVED', 'AWAITING_RECONCILIATION'].includes(t!.status) && (
-            <Panel title="Fecho operacional e financeiro (FR-038)">
+            <Panel title="Fecho operacional e financeiro">
               {t!.closeBlockers && JSON.parse(t!.closeBlockers).length > 0 && (
                 <div className="mb-3 rounded border border-amber-300 bg-amber-50 p-2.5 text-sm text-amber-900">
                   <b>Pendências detectadas:</b>
@@ -354,7 +354,7 @@ function TripDetail({ tripId, onOpenChange, aoMudar }: { tripId: string | null; 
                 {t!.status === 'ARRIVED' && <Button size="sm" onClick={() => agir('request_close')}>Solicitar fecho / reconciliação</Button>}
                 {t!.status === 'AWAITING_RECONCILIATION' && (
                   <>
-                    <Button size="sm" onClick={() => setConfirmar({ action: 'close', titulo: 'Fechar viagem', mensagem: 'O fecho é auditado. Pendências críticas bloqueiam o fecho (AT-023).' })}>Fechar viagem</Button>
+                    <Button size="sm" onClick={() => setConfirmar({ action: 'close', titulo: 'Fechar viagem', mensagem: 'O fecho é auditado. Pendências críticas bloqueiam o fecho.' })}>Fechar viagem</Button>
                     <Button size="sm" variant="outline" onClick={() => setConfirmar({ action: 'close', titulo: 'Fechar com excepção autorizada', mensagem: 'Somente finanças/administração pode fechar com pendências excepcionadas, com motivo auditado.', perigo: true, pedirMotivo: true })}>Fechar com excepção</Button>
                   </>
                 )}
@@ -410,18 +410,18 @@ function ChecklistSection({ detail, aoMudar, podeSubmeter }: { detail: Detail; a
   }
 
   return (
-    <Panel title="Checklist pré-partida (§6.5)" description="Itens bloqueantes falhados impedem a autorização de partida — sem botão de continuação forçada (FR-044, AT-003)."
+    <Panel title="Checklist pré-partida" description="Itens bloqueantes falhados impedem a autorização de partida - sem botão de continuação forçada."
       actions={<StatusBadge estado={run.status} mapa={{ PENDING: 'Pendente', PASSED: 'Aprovada', FAILED: 'Bloqueada' }} />}>
       {run.status === 'FAILED' && run.blockedReason && (
         <div className="mb-3 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
           <b className="flex items-center gap-1.5"><ShieldAlert className="h-4 w-4" /> Viagem bloqueada:</b>
           <ul className="mt-1 list-disc pl-5">{run.blockedReason.split(' | ').map((b, i) => <li key={i}>{b}</li>)}</ul>
-          <p className="mt-1 text-xs">Corrija o item e submeta novamente. Excepções a requisitos de segurança exigem procedimento formal fora da aplicação (FR-044).</p>
+          <p className="mt-1 text-xs">Corrija o item e submeta novamente. Excepções a requisitos de segurança exigem procedimento formal fora da aplicação.</p>
         </div>
       )}
       {run.status === 'PASSED' && (
         <div className="mb-3 rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800 flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4" /> Checklist aprovada — viagem pronta para autorização de partida.
+          <ShieldCheck className="h-4 w-4" /> Checklist aprovada - viagem pronta para autorização de partida.
         </div>
       )}
       <div className="space-y-2">
@@ -433,7 +433,7 @@ function ChecklistSection({ detail, aoMudar, podeSubmeter }: { detail: Detail; a
             <label htmlFor={item.key} className="flex-1 text-sm cursor-pointer">
               {item.label}
               {item.blocking && <Badge variant="outline" className="ml-2 border-red-300 text-red-700 text-[10px]">BLOQUEANTE</Badge>}
-              {item.key === 'carregador_telemovel' && <span className="ml-1.5 text-[10px] font-bold text-amber-700">REQUISITO CRÍTICO — CARREGADOR</span>}
+              {item.key === 'carregador_telemovel' && <span className="ml-1.5 text-[10px] font-bold text-amber-700">REQUISITO CRÍTICO - CARREGADOR</span>}
             </label>
             <EntradaTexto placeholder="Nota (opcional)" className="h-8 w-44 text-xs" value={notas[item.key] ?? ''}
               onChange={(e) => setNotas({ ...notas, [item.key]: e.target.value })} disabled={run.status === 'PASSED'} />
@@ -445,7 +445,7 @@ function ChecklistSection({ detail, aoMudar, podeSubmeter }: { detail: Detail; a
           <Button size="sm" disabled={busy || !todosRespondidos} onClick={submeter}>
             {busy ? 'A submeter…' : 'Submeter checklist'}
           </Button>
-          {!todosRespondidos && <span className="text-xs text-muted-foreground">Responda a todos os itens — incluindo o carregador (requisito crítico).</span>}
+          {!todosRespondidos && <span className="text-xs text-muted-foreground">Responda a todos os itens - incluindo o carregador (requisito crítico).</span>}
         </div>
       )}
       {resultado && <div className="mt-3 rounded border border-teal-300 bg-teal-50 p-2.5 text-sm text-teal-900">{resultado}</div>}

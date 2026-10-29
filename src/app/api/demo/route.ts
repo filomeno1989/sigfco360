@@ -1,5 +1,5 @@
 // =====================================================================
-// SIGFCO — Ambiente DEMO (DEV-003, FR-004, ARC-006)
+// SIGFCO - Ambiente DEMO
 // Semeia uma empresa de DEMONSTRAÇÃO (isDemo=true) claramente
 // identificada e alimenta o SIMULADOR de telemetria (fonte=SIMULATOR).
 // NADA disto é apresentado como operação real: a UI marca DEMO em todos
@@ -12,6 +12,10 @@ import { rateLimit } from '@/lib/api'
 import { ensureSystemChecklistItems } from '@/lib/viagem'
 
 export const dynamic = 'force-dynamic'
+
+// O ambiente de demonstração só existe em servidores que o autorizam
+// (variável SIGFCO_DEMO=1). Em produção fica desactivado por defeito.
+const DEMO_ENABLED = process.env.SIGFCO_DEMO === '1'
 
 const DEMO_POINTS = [
   // Corredor Beira → Mutare (EN6) com pontos de fronteira
@@ -27,6 +31,9 @@ const DEMO_POINTS = [
 ]
 
 export async function POST(req: NextRequest) {
+  if (!DEMO_ENABLED) {
+    return NextResponse.json({ error: 'Ambiente de demonstração desactivado neste servidor.' }, { status: 403 })
+  }
   const body = await req.json().catch(() => ({}))
   const action = body.action as string
 
@@ -49,8 +56,8 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    await db.branch.create({ data: { companyId: company.id, name: 'Beira — Sede', address: 'Porto da Beira', lat: -19.8325, lng: 34.8389 } })
-    await db.branch.create({ data: { companyId: company.id, name: 'Chimoio — Filial', address: 'Chimoio', lat: -19.1164, lng: 33.4833 } })
+    await db.branch.create({ data: { companyId: company.id, name: 'Beira - Sede', address: 'Porto da Beira', lat: -19.8325, lng: 34.8389 } })
+    await db.branch.create({ data: { companyId: company.id, name: 'Chimoio - Filial', address: 'Chimoio', lat: -19.1164, lng: 33.4833 } })
 
     // -------- Utilizadores DEMO (um por perfil) --------
     const pwd = hashPassword('Sigfco2026!')
@@ -74,10 +81,10 @@ export async function POST(req: NextRequest) {
       data: { companyId: company.id, code: 'MTR-002', name: 'Arsénio Chivite (DEMO)', phone: '+258 82 222 2222', licenseNumber: 'MZ-223456', licenseCategory: 'C', licenseExpiry: new Date(Date.now() + 20 * 86400_000), licenseCountry: 'MZ', status: 'ACTIVE' },
     })
     await db.driver.create({
-      data: { companyId: company.id, code: 'MTR-003', name: 'Carlos Bila (DEMO)', phone: '+258 86 333 3333', licenseNumber: 'MZ-323456', licenseCategory: 'C1', licenseExpiry: new Date(Date.now() - 5 * 86400_000), licenseCountry: 'MZ', status: 'ACTIVE' }, // carta expirada → inelegível (FR-021)
+      data: { companyId: company.id, code: 'MTR-003', name: 'Carlos Bila (DEMO)', phone: '+258 86 333 3333', licenseNumber: 'MZ-323456', licenseCategory: 'C1', licenseExpiry: new Date(Date.now() - 5 * 86400_000), licenseCountry: 'MZ', status: 'ACTIVE' }, // carta expirada → inelegível
     })
     await db.user.create({
-      data: { companyId: company.id, name: 'João Macuácua — Motorista (DEMO)', email: 'motorista@demo.sigfco', passwordHash: pwd, role: 'DRIVER', driverId: driver.id, isDemo: true },
+      data: { companyId: company.id, name: 'João Macuácua - Motorista (DEMO)', email: 'motorista@demo.sigfco', passwordHash: pwd, role: 'DRIVER', driverId: driver.id, isDemo: true },
     })
 
     // -------- Frota DEMO --------
@@ -94,19 +101,19 @@ export async function POST(req: NextRequest) {
 
     // -------- Rastreadores DEMO --------
     const dev1 = await db.gpsDevice.create({
-      data: { companyId: company.id, serial: 'TLT-DEMO-001', imei: '860001051234567', vendor: '(fornecedor por homologar — ARC-005)', protocol: 'generic-json', simNumber: '+258 84 555 0001', status: 'OPERATIONAL', vehicleId: truck1.id, apiKey: 'gps_demo0000000000000000000000000001', installedAt: new Date('2026-01-10'), installedBy: 'Fornecedor GPS (a homologar)' },
+      data: { companyId: company.id, serial: 'TLT-DEMO-001', imei: '860001051234567', vendor: '', protocol: 'generic-json', simNumber: '+258 84 555 0001', status: 'OPERATIONAL', vehicleId: truck1.id, apiKey: 'gps_demo0000000000000000000000000001', installedAt: new Date('2026-01-10'), installedBy: 'Fornecedor GPS (a homologar)' },
     })
     const dev2 = await db.gpsDevice.create({
-      data: { companyId: company.id, serial: 'TLT-DEMO-002', imei: '860001051234568', vendor: '(fornecedor por homologar — ARC-005)', protocol: 'generic-json', simNumber: '+258 84 555 0002', status: 'OPERATIONAL', vehicleId: truck2.id, apiKey: 'gps_demo0000000000000000000000000002' },
+      data: { companyId: company.id, serial: 'TLT-DEMO-002', imei: '860001051234568', vendor: '', protocol: 'generic-json', simNumber: '+258 84 555 0002', status: 'OPERATIONAL', vehicleId: truck2.id, apiKey: 'gps_demo0000000000000000000000000002' },
     })
     await db.gpsDevice.create({
-      data: { companyId: company.id, serial: 'TLT-DEMO-003', imei: '860001051234569', vendor: '(fornecedor por homologar — ARC-005)', protocol: 'generic-json', status: 'NO_NETWORK', vehicleId: null, apiKey: 'gps_demo0000000000000000000000000003' },
+      data: { companyId: company.id, serial: 'TLT-DEMO-003', imei: '860001051234569', vendor: '', protocol: 'generic-json', status: 'NO_NETWORK', vehicleId: null, apiKey: 'gps_demo0000000000000000000000000003' },
     })
     await db.deviceAssignment.create({ data: { companyId: company.id, deviceId: dev1.id, vehicleId: truck1.id, fromAt: new Date('2026-01-10'), note: 'Instalação inicial (DEMO)' } })
 
-    // -------- Geofences (§2.5, GPS-022) --------
+    // -------- Geofences --------
     const fences = [
-      { name: 'Porto da Beira — Terminal', type: 'PORT', lat: -19.8325, lng: 34.8389, radiusM: 1500 },
+      { name: 'Porto da Beira - Terminal', type: 'PORT', lat: -19.8325, lng: 34.8389, radiusM: 1500 },
       { name: 'Base Beira', type: 'BASE', lat: -19.8200, lng: 34.8500, radiusM: 500 },
       { name: 'Fronteira Machipanda', type: 'BORDER', lat: -18.9600, lng: 32.7500, radiusM: 1000 },
       { name: 'Cliente Harare', type: 'CUSTOMER', lat: -17.8600, lng: 31.0400, radiusM: 800 },
@@ -114,7 +121,7 @@ export async function POST(req: NextRequest) {
     ]
     for (const f of fences) await db.geofence.create({ data: { companyId: company.id, ...f } })
 
-    // -------- Checklist DEMO (com itens sistémicos — §6.5) --------
+    // -------- Checklist DEMO --------
     const items = ensureSystemChecklistItems([
       { key: 'pneus', label: 'Pneus: estado e pressão visualmente OK', blocking: true, category: 'mecanica' },
       { key: 'travoes', label: 'Travões / inspecção visual de travagem', blocking: true, category: 'mecanica' },
@@ -125,22 +132,22 @@ export async function POST(req: NextRequest) {
       { key: 'extintor', label: 'Extintor e itens de segurança exigidos', blocking: true, category: 'seguranca' },
       { key: 'telemovel', label: 'Telemóvel de trabalho carregado e com saldo/dados', blocking: true, category: 'comunicacoes' },
     ])
-    await db.checklistTemplate.create({ data: { companyId: company.id, name: 'Checklist padrão — camião pesado (DEMO)', itemsJson: JSON.stringify(items), active: true } })
+    await db.checklistTemplate.create({ data: { companyId: company.id, name: 'Checklist padrão - camião pesado (DEMO)', itemsJson: JSON.stringify(items), active: true } })
 
-    // -------- Taxas de câmbio DEMO (FIN-003, fonte registada) --------
-    await db.exchangeRate.create({ data: { companyId: company.id, fromCcy: 'USD', toCcy: 'MZN', rate: '63.85', source: 'MANUAL', note: 'Taxa DEMO definida manualmente — substituir por fonte real.' } })
+    // -------- Taxas de câmbio DEMO --------
+    await db.exchangeRate.create({ data: { companyId: company.id, fromCcy: 'USD', toCcy: 'MZN', rate: '63.85', source: 'MANUAL', note: 'Taxa DEMO definida manualmente - substituir por fonte real.' } })
     await db.exchangeRate.create({ data: { companyId: company.id, fromCcy: 'ZAR', toCcy: 'MZN', rate: '3.48', source: 'MANUAL', note: 'Taxa DEMO definida manualmente.' } })
     await db.exchangeRate.create({ data: { companyId: company.id, fromCcy: 'ZWG', toCcy: 'MZN', rate: '4.95', source: 'MANUAL', note: 'Taxa DEMO definida manualmente.' } })
 
-    // -------- Per diem DEMO (FR-066) --------
+    // -------- Per diem DEMO --------
     await db.perDiemRule.create({ data: { companyId: company.id, country: 'MZ', amountMinor: 80000, currency: 'MZN' } })
     await db.perDiemRule.create({ data: { companyId: company.id, country: 'ZW', city: 'Harare', amountMinor: 4000, currency: 'USD' } })
     await db.perDiemRule.create({ data: { companyId: company.id, country: 'MW', amountMinor: 3500, currency: 'USD' } })
 
-    // -------- Documentos DEMO (um expirado bloqueante para testar AT-017) --------
+    // -------- Documentos DEMO --------
     await db.documentItem.create({ data: { companyId: company.id, ownerType: 'VEHICLE', vehicleId: truck1.id, type: 'seguro', number: 'SEGURO-2026-001', issuerCountry: 'MZ', issuedAt: new Date('2026-01-15'), expiresAt: new Date('2027-01-15'), blocking: true } })
     await db.documentItem.create({ data: { companyId: company.id, ownerType: 'VEHICLE', vehicleId: truck1.id, type: 'inspecao', number: 'INSP-2026-001', issuerCountry: 'MZ', issuedAt: new Date('2026-04-01'), expiresAt: new Date(Date.now() + 45 * 86400_000), blocking: true } })
-    await db.documentItem.create({ data: { companyId: company.id, ownerType: 'VEHICLE', vehicleId: truck2.id, type: 'autorizacao_transfronteira', number: 'CD-2026-014', issuerCountry: 'MZ', issuedAt: new Date('2026-02-01'), expiresAt: new Date(Date.now() - 3 * 86400_000), blocking: true, notes: 'DEMO: expirado de propósito para demonstrar bloqueio AT-017.' } })
+    await db.documentItem.create({ data: { companyId: company.id, ownerType: 'VEHICLE', vehicleId: truck2.id, type: 'autorizacao_transfronteira', number: 'CD-2026-014', issuerCountry: 'MZ', issuedAt: new Date('2026-02-01'), expiresAt: new Date(Date.now() - 3 * 86400_000), blocking: true, notes: 'DEMO: expirado de propósito para demonstrar bloqueio.' } })
     await db.documentItem.create({ data: { companyId: company.id, ownerType: 'DRIVER', driverId: driver.id, type: 'carta_conducao', number: 'MZ-123456', issuerCountry: 'MZ', expiresAt: new Date('2028-06-30'), blocking: true } })
 
     // -------- Manutenção DEMO --------
@@ -171,13 +178,13 @@ export async function POST(req: NextRequest) {
       data: { companyId: company.id, deviceId: dev2.id, vehicleId: truck2.id, lat: -19.8255, lng: 34.8420, speedKmh: 0, heading: 0, accuracyM: 5, gnssTime: new Date(Date.now() - 15 * 60_000), source: 'SIMULATOR', seq: 2000, ignition: false, fixQuality: '3D', isHistoric: true },
     })
 
-    return NextResponse.json({ ok: true, companyId: company.id, note: 'Dados DEMO criados. Credenciais demo listadas no ecrã de login. Telemetria marcada como SIMULATOR (DEV-003).' })
+    return NextResponse.json({ ok: true, companyId: company.id, note: 'Dados DEMO criados. Credenciais demo listadas no ecrã de login. Telemetria marcada como SIMULATOR.' })
   }
 
   // ------------------------- Simulador DEMO -------------------------
   if (action === 'simulator-tick') {
     // Move o camião DEMO ao longo do corredor Beira→Harare e ingere pontos
-    // pela MESMA via do adaptador (fonte SIMULATOR — nunca apresentada como real).
+    // pela MESMA via do adaptador (fonte SIMULATOR - nunca apresentada como real).
     const company = await db.company.findFirst({ where: { isDemo: true } })
     if (!company) return NextResponse.json({ error: 'Sem ambiente DEMO semeado.' }, { status: 400 })
     const dev = await db.gpsDevice.findFirst({ where: { companyId: company.id, serial: 'TLT-DEMO-001' } })
@@ -206,13 +213,14 @@ export async function POST(req: NextRequest) {
     })
     await db.gpsDevice.update({ where: { id: dev.id }, data: { lastPointAt: point.gnssTime } })
     await NextResponse.json // noop para lint
-    return NextResponse.json({ ok: true, point: { lat: point.lat, lng: point.lng, gnssTime: point.gnssTime, isHistoric: point.isHistoric, local: cur.nome }, note: 'Ponto DEMO (fonte SIMULATOR) — não é telemetria real.' })
+    return NextResponse.json({ ok: true, point: { lat: point.lat, lng: point.lng, gnssTime: point.gnssTime, isHistoric: point.isHistoric, local: cur.nome }, note: 'Ponto DEMO (fonte SIMULATOR) - não é telemetria real.' })
   }
 
   return NextResponse.json({ error: 'Acção desconhecida.' }, { status: 400 })
 }
 
 export async function GET() {
+  if (!DEMO_ENABLED) return NextResponse.json({ enabled: false, seeded: false })
   const company = await db.company.findFirst({ where: { isDemo: true } })
-  return NextResponse.json({ seeded: Boolean(company), companyId: company?.id ?? null })
+  return NextResponse.json({ enabled: true, seeded: Boolean(company), companyId: company?.id ?? null })
 }

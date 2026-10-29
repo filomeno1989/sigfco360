@@ -1,4 +1,4 @@
-// SIGFCO — Alertas (§15.2): fila por gravidade, reconhecer/encerrar com motivo
+// SIGFCO - Alertas: fila por gravidade, reconhecer/encerrar com motivo
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 
@@ -33,9 +33,9 @@ export const PATCH = withAuth(async ({ ctx, req }) => {
     await audit({ req, ctx, companyId, action: 'ALERT_ACK', entity: 'Alert', entityId: alert.id, after: { title: alert.title } })
     return jsonOk({ alert: updated })
   }
-  // HIGH/CRITICAL exigem motivo para encerrar (§15.2)
+  // HIGH/CRITICAL exigem motivo para encerrar
   if (['CRITICAL', 'HIGH'].includes(alert.severity) && !b.reason)
-    return jsonError(400, 'Encerrar alerta de gravidade alta/crítica exige motivo (§15.2).')
+    return jsonError(400, 'Encerrar alerta de gravidade alta/crítica exige motivo.')
   const updated = await db.alert.update({
     where: { id: alert.id },
     data: { status: 'CLOSED', closeReason: b.reason, closedById: ctx.user.id, closedAt: new Date() },

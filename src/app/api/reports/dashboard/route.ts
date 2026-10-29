@@ -1,5 +1,5 @@
-// SIGFCO — Dashboard e relatórios (§15.1): indicadores com fonte, período
-// e limitações declaradas (§15.3) — pendentes nunca somados como aprovados
+// SIGFCO - Dashboard e relatórios: indicadores com fonte, período
+// e limitações declaradas - pendentes nunca somados como aprovados
 import { withAuth, jsonOk, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { getSetting } from '@/lib/numeracao'
@@ -35,7 +35,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
     db.driver.count({ where: { companyId, status: 'ACTIVE' } }),
   ])
 
-  // Frota por estado GPS (frescura do último ponto — GPS-012)
+  // Frota por estado GPS
   const fleet = await Promise.all(devices.map(async (d) => {
     const last = await db.gpsPoint.findFirst({ where: { deviceId: d.id }, orderBy: { gnssTime: 'desc' } })
     return { freshness: computeFreshness(last?.gnssTime ?? null, staleMinutes, delayedMinutes, last?.isHistoric), deviceStatus: d.status }
@@ -47,7 +47,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
     noPower: fleet.filter((f) => f.deviceStatus === 'NO_POWER' || f.deviceStatus === 'TAMPER_ALERT').length,
   }
 
-  // Despesas: 30 dias, separado pendente/aprovado (§15.3)
+  // Despesas: 30 dias, separado pendente/aprovado
   const monthAgo = new Date(Date.now() - 30 * 86400_000)
   const expenseAgg = await db.expense.groupBy({
     by: ['status'],
@@ -76,7 +76,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
       expensesLast30d: Object.fromEntries(expenseAgg.map((e) => [e.status, { count: e._count._all, totalMinor: e._sum.convertedMinor ?? 0 }])),
     },
     dataQualidade: {
-      nota: 'Indicadores financeiros distinguem pendentes de aprovados (§15.3). Tempo sem GPS não é contado como parado (GPS-027).',
+      nota: 'Indicadores financeiros distinguem pendentes de aprovados. Tempo sem GPS não é contado como parado.',
     },
   })
 }, { anyPerm: ['report.read', 'trip.read'] })

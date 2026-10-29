@@ -1,4 +1,4 @@
-// SIGFCO — Taxas de câmbio (FIN-003): fonte explícita; manual exige permissão
+// SIGFCO - Taxas de câmbio: fonte explícita; manual exige permissão
 import { withAuth, jsonOk, jsonError, readJson, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { setRate } from '@/lib/money'
@@ -19,7 +19,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   const rateNum = Number(b.rate)
   if (!isFinite(rateNum) || rateNum <= 0) return jsonError(400, 'Taxa inválida.')
   if ((b.source ?? 'MANUAL') === 'MANUAL' && !['FINANCE', 'COMPANY_ADMIN', 'PLATFORM_ADMIN'].includes(ctx.user.role))
-    return jsonError(403, 'Taxa manual exige permissão financeira (FIN-003).')
+    return jsonError(403, 'Taxa manual exige permissão financeira.')
 
   const created = await setRate({
     companyId, fromCcy: b.fromCcy.toUpperCase(), toCcy: b.toCcy.toUpperCase(),

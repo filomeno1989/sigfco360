@@ -1,5 +1,5 @@
-// SIGFCO — Notificações in-app (inbox; canais externos ficam pendentes de
-// fornecedor — §14.1, §19) e auditoria (SEC-009, AT-019)
+// SIGFCO - Notificações in-app (inbox; canais externos ficam pendentes de
+// fornecedor -,) e auditoria
 import { withAuth, jsonOk, readJson, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 

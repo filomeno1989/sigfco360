@@ -1,5 +1,5 @@
 // =====================================================================
-// SIGFCO — Armazenamento privado de ficheiros (SEC-007, §9.3, FR-051)
+// SIGFCO - Armazenamento privado de ficheiros
 // Ficheiros gravados fora de /public (db/uploads), nomes internos
 // aleatórios, hash SHA-256, acesso só via endpoint autorizado.
 // =====================================================================
@@ -69,7 +69,7 @@ export async function saveAttachment(params: {
 
 export async function readAttachmentBytes(attachmentId: string, companyId: string) {
   const att = await db.attachment.findUnique({ where: { id: attachmentId } })
-  if (!att || att.companyId !== companyId) return null // isolamento por empresa (AT-001)
+  if (!att || att.companyId !== companyId) return null // isolamento por empresa
   try {
     const buf = await fs.readFile(path.join(UPLOAD_DIR, att.path))
     const verified = crypto.createHash('sha256').update(buf).digest('hex') === att.hash

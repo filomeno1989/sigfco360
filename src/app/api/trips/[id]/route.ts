@@ -1,4 +1,4 @@
-// SIGFCO — Detalhe da viagem: dados completos para o ecrã de operação
+// SIGFCO - Detalhe da viagem: dados completos para o ecrã de operação
 import { withAuth, jsonOk, jsonError, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { computeTripBudget } from '@/lib/financeiro'
@@ -23,7 +23,7 @@ export const GET = withAuth(async ({ ctx, req, params }) => {
   })
   if (!trip || trip.companyId !== companyId) return jsonError(404, 'Viagem não encontrada.')
 
-  // Motorista: apenas a sua viagem e sem orçamento global (AT-002)
+  // Motorista: apenas a sua viagem e sem orçamento global
   const isOwn = ctx.user.role === 'DRIVER' && ctx.user.driverId === trip.driverId
   if (ctx.user.role === 'DRIVER' && !isOwn) return jsonError(403, 'Só pode consultar a sua própria viagem.')
 

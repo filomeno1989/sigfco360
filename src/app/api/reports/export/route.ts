@@ -1,4 +1,4 @@
-// SIGFCO — Exportações CSV autorizadas e auditadas (AT-024, §4.1)
+// SIGFCO - Exportações CSV autorizadas e auditadas
 // Permissão verificada por tipo; cada exportação gera evento de auditoria.
 import { withAuth, jsonError, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
@@ -26,7 +26,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
 
   if (type === 'expenses') {
     if (!['FINANCE', 'COMPANY_ADMIN', 'AUDITOR', 'PLATFORM_ADMIN', 'FLEET_MANAGER'].includes(ctx.user.role))
-      return jsonError(403, 'Exportação financeira restrita (AT-024).')
+      return jsonError(403, 'Exportação financeira restrita.')
     const list = await db.expense.findMany({
       where: { companyId, expenseDate: { gte: from, lte: to } },
       include: { trip: { select: { code: true } }, driver: { select: { name: true } } },
@@ -78,7 +78,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
     return jsonError(400, 'Tipo de exportação desconhecido. Use: expenses | fuel | trips | documents.')
   }
 
-  // AT-024: exportação registada
+  //: exportação registada
   await audit({ req, ctx, companyId, action: 'EXPORT', entity: `Report:${type}`, after: { rows: rows.length, from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) } })
 
   return new Response('\uFEFF' + csv(rows), {

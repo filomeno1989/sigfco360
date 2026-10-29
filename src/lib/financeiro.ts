@@ -1,6 +1,6 @@
 // =====================================================================
-// SIGFCO — Financeiro: orçamento vs realizado, duplicados, fecho
-// (FIN-010..016, FR-058, §9.3)
+// SIGFCO - Financeiro: orçamento vs realizado, duplicados, fecho
+
 // =====================================================================
 import 'server-only'
 import { db } from '@/lib/db'
@@ -61,7 +61,7 @@ export async function computeTripBudget(companyId: string, tripId: string): Prom
   }
 }
 
-/** Detecção de duplicados (FR-058, AT-015): sinaliza, não rejeita sozinha. */
+/** Detecção de duplicados: sinaliza, não rejeita sozinha. */
 export async function detectDuplicate(companyId: string, candidate: {
   id: string
   tripId?: string
@@ -110,7 +110,7 @@ export async function detectDuplicate(companyId: string, candidate: {
   return { flag: 'POSSIBLE_DUPLICATE', score: Math.min(best.score, 1), ofId: best.id, reasons: best.reasons }
 }
 
-/** Reconciliação de viagem (FR-067, FIN-015). */
+/** Reconciliação de viagem. */
 export async function reconcileTrip(companyId: string, tripId: string) {
   const company = await db.company.findUnique({ where: { id: companyId } })
   const baseCurrency = company?.currencyBase ?? 'MZN'

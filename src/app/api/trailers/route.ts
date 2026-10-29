@@ -1,4 +1,4 @@
-// SIGFCO — Reboques e combinações (FR-012)
+// SIGFCO - Reboques e combinações
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { normalizePlate } from '@/lib/plate'

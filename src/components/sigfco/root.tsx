@@ -1,7 +1,7 @@
 // =====================================================================
-// SIGFCO — Raiz da aplicação: sessão, shell de navegação e router de
-// vistas. Idioma: Português de Moçambique (UX-001). Layout responsivo
-// (§11.1) com footer fixo (min-h-screen flex).
+// SIGFCO - Raiz da aplicação: sessão, shell de navegação e router de
+// vistas. Idioma: Português de Moçambique. Layout responsivo
+// com footer fixo (min-h-screen flex).
 // =====================================================================
 'use client'
 
@@ -27,6 +27,7 @@ import { FinanceiroView } from './views-finance'
 import { ManutencaoView } from './views-maintenance'
 import { RelatoriosView, AlertasView, AuditoriaView, ConfiguracaoView } from './views-misc'
 import { MotoristaApp } from './views-driver'
+import { TemaBotao } from './tema-botao'
 
 // Moçambique tem um único fuso horário oficial (CAT, UTC+2). A base guarda o
 // identificador IANA; apresentamos sempre o nome civil legível.
@@ -89,8 +90,8 @@ export function SigfcoApp() {
 
   React.useEffect(() => { carregar() }, [carregar])
 
-  // PWA: registo conservador do service worker (§8.3 — shell básico;
-  // a persistência offline real vive no IndexedDB, não no SW)
+  // PWA: registo conservador do service worker - shell básico;
+  // a persistência offline real vive no IndexedDB, não no SW
   React.useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => { /* sem SW: app continua funcional */ })
@@ -135,7 +136,7 @@ export function SigfcoApp() {
             </main>
           </div>
           <footer className="mt-auto border-t py-3 px-6 text-xs text-muted-foreground flex flex-wrap items-center justify-between gap-2">
-            <span>SIGFCO — Sistema Integrado de Gestão de Frotas e Controles Operacionais</span>
+            <span>SIGFCO - Sistema Integrado de Gestão de Frotas e Controlos Operacionais</span>
             <span>{sessao.company?.name}{sessao.company?.isDemo ? ' • ambiente DEMO' : ''} • {fusoLegivel(sessao.company?.timezone)}</span>
           </footer>
         </div>
@@ -172,7 +173,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
       try { const me = await api<Sessao>('/api/auth/me'); setUnread(me.unreadNotifications); app.recarregar() } catch { /* silencioso */ }
     }, 60_000)
     return () => clearInterval(t)
-  }, [])  
+  }, [])
 
   return (
     <header className="sticky top-0 z-40 border-b bg-zinc-950 text-zinc-50">
@@ -181,14 +182,17 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
           <Menu className="h-5 w-5" />
         </Button>
         <a className="flex items-center gap-2.5 cursor-pointer" onClick={() => app.setVista('dashboard')}>
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 font-bold text-white text-sm">SF</span>
+          <span className="flex h-8 w-9 items-center justify-center overflow-hidden rounded-lg bg-white p-1 shadow-sm">
+            <img src="/brand/logo-sigfco.png" alt="SIGFCO" className="h-full w-auto object-contain" />
+          </span>
           <span className="font-semibold tracking-tight hidden sm:block">SIGFCO</span>
-          {sessao.company?.isDemo && <span className="rounded border border-amber-500/60 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">DEMO</span>}
+          {sessao.company?.isDemo && <span className="rounded border border-amber-500/60 px-1.5 py-0.5 text-[10px] font-bold text-amber-500">DEMO</span>}
         </a>
         <div className="ml-auto flex items-center gap-1.5">
+          <TemaBotao className="text-zinc-300 hover:bg-zinc-800 hover:text-white" />
           <Button variant="ghost" size="icon" className="relative text-zinc-300 hover:bg-zinc-800 hover:text-white" onClick={() => app.setVista(sessao.user.role === 'DRIVER' ? 'minha-viagem' : 'alertas')} aria-label="Notificações">
             <BellRing className="h-5 w-5" />
-            {unread > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-zinc-950">{unread}</span>}
+            {unread > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-black">{unread}</span>}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -230,6 +234,11 @@ function Sidebar({ view, setView, sessao, className }: { view: string; setView: 
   const itens = NAV.filter((n) => n.roles.includes('*') || n.roles.includes(sessao.user.role))
   return (
     <nav className={cn('w-64 shrink-0 flex-col border-r bg-zinc-950 text-zinc-300 py-3', className)} aria-label="Navegação principal">
+      <div className="px-4 pb-3">
+        <span className="flex h-10 w-11 items-center justify-center overflow-hidden rounded-lg bg-white p-1.5 shadow-sm">
+          <img src="/brand/logo-sigfco.png" alt="SIGFCO" className="h-full w-auto object-contain" />
+        </span>
+      </div>
       <div className="px-4 pb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Operação</div>
       {itens.slice(0, 9).map((n) => (
         <NavBtn key={n.id} item={n} activo={view === n.id} onClick={() => setView(n.id)} />

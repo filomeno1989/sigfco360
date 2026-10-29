@@ -1,4 +1,4 @@
-// SIGFCO — Empresa e parâmetros (FR-001/002/003, §4.1)
+// SIGFCO - Empresa e parâmetros
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { getSettings, setSetting } from '@/lib/numeracao'

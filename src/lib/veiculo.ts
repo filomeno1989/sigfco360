@@ -1,8 +1,8 @@
 // =====================================================================
-// SIGFCO — Estado do veículo calculado a partir de eventos (FR-014)
+// SIGFCO - Estado do veículo calculado a partir de eventos
 // Não marcar como Disponível um veículo com manutenção crítica vencida,
 // documento obrigatório expirado, rastreador inoperacional ou checklist
-// reprovada (§5.2). Transições automáticas deixam registo.
+// reprovada. Transições automáticas deixam registo.
 // =====================================================================
 import 'server-only'
 import { db } from '@/lib/db'

@@ -1,5 +1,5 @@
 // =====================================================================
-// SIGFCO — Dinheiro e câmbio (FIN-001..005)
+// SIGFCO - Dinheiro e câmbio
 // Montantes em unidades menores inteiras (centavos). NUNCA ponto
 // flutuante para saldos financeiros. Câmbio com fonte, data e autor.
 // =====================================================================
@@ -10,9 +10,9 @@ import type { SessionContext } from './auth'
 
 export const BASE_CURRENCY_DEFAULT = 'MZN'
 
-/** Formata unidades menores → string "1.234,56 MT" (UX-001). */
+/** Formata unidades menores → string "1.234,56 MT". */
 export function fmtMoney(amountMinor: number | null | undefined, currency = 'MZN', locale = 'pt-MZ'): string {
-  if (amountMinor === null || amountMinor === undefined) return '—'
+  if (amountMinor === null || amountMinor === undefined) return '-'
   const value = amountMinor / 100
   try {
     return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(value)
@@ -35,7 +35,7 @@ export function mulMinor(liters: number, pricePerLiterMinor: number): number {
   return Math.round(liters * pricePerLiterMinor)
 }
 
-/** Taxa guardada como string decimal; converção reproduzível (AT-013). */
+/** Taxa guardada como string decimal; converção reproduzível. */
 export function convert(amountMinor: number, rateStr: string): number {
   const rate = Number(rateStr)
   if (!isFinite(rate) || rate <= 0) throw new Error('Taxa de câmbio inválida.')
@@ -79,7 +79,7 @@ export async function setRate(params: {
       note: params.note,
     },
   })
-  // Operação crítica: alterar taxa de câmbio → auditoria (§4.1)
+  // Operação crítica: alterar taxa de câmbio → auditoria
   await audit({
     req: params.req as never,
     ctx: params.setBy ?? undefined,

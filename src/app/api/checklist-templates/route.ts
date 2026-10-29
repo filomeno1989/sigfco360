@@ -1,5 +1,5 @@
-// SIGFCO — Templates de checklist (FR-043): configuráveis por empresa;
-// itens sistémicos do carregador/suporte/GPS não removíveis (§6.5)
+// SIGFCO - Templates de checklist: configuráveis por empresa;
+// itens sistémicos do carregador/suporte/GPS não removíveis
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { ensureSystemChecklistItems } from '@/lib/viagem'

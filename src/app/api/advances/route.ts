@@ -1,4 +1,4 @@
-// SIGFCO — Adiantamentos (FR-065) e reconciliação (FR-067, FIN-015/016)
+// SIGFCO - Adiantamentos e reconciliação
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { reconcileTrip } from '@/lib/financeiro'

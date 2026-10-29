@@ -1,7 +1,7 @@
 // =====================================================================
-// SIGFCO — Despesas: fila financeira (FIN-013), aprovação/rejeição com
-// motivo obrigatório (FIN-014), duplicados (AT-015), comprovativo
-// privado com hash (SEC-007), segregação de funções (§4.1)
+// SIGFCO - Despesas: fila financeira, aprovação/rejeição com
+// motivo obrigatório, duplicados, comprovativo
+// privado com hash, segregação de funções
 // =====================================================================
 'use client'
 
@@ -93,7 +93,7 @@ export function DespesasView() {
   ]
 
   return (
-    <Page title="Despesas" subtitle={isDriver ? 'As suas despesas e estados de sincronização (OFF-006)' : 'Fila financeira com filtros por pendente, duplicado, sem talão, moeda e viagem (FIN-013)'}
+    <Page title="Despesas" subtitle={isDriver ? 'As suas despesas e estados de sincronização' : 'Fila financeira com filtros por pendente, duplicado, sem talão, moeda e viagem'}
       demo={sessao.company?.isDemo}>
       <ErroAlerta erro={erro} />
       {!isDriver && (
@@ -116,8 +116,8 @@ export function DespesasView() {
           columns={[
             { key: 'code', header: 'Código', render: (e) => <span className="font-medium">{e.code}</span> },
             { key: 'date', header: 'Data', render: (e) => fmtData(e.expenseDate, true), hideOnMobile: true },
-            { key: 'trip', header: 'Viagem', render: (e) => e.trip?.code ?? '—' },
-            { key: 'driver', header: 'Motorista', render: (e) => e.driver?.name ?? '—', hideOnMobile: !isDriver },
+            { key: 'trip', header: 'Viagem', render: (e) => e.trip?.code ?? '-' },
+            { key: 'driver', header: 'Motorista', render: (e) => e.driver?.name ?? '-', hideOnMobile: !isDriver },
             { key: 'cat', header: 'Categoria', render: (e) => CAT_LABEL[e.category] ?? e.category },
             { key: 'valor', header: 'Valor', render: (e) => <div><b>{fmtMT(e.amountMinor, e.currency)}</b>{e.currency !== 'MZN' && e.convertedMinor != null && <div className="text-xs text-muted-foreground">≈ {fmtMT(e.convertedMinor)} (taxa {e.rateApplied} {e.rateSource})</div>}</div> },
             { key: 'talao', header: 'Talão', render: (e) => e.attachments.length > 0 ? <Badge variant="outline" className="border-emerald-400 text-emerald-700">Anexo</Badge> : e.noReceiptReason ? <Badge variant="outline" className="border-amber-400 text-amber-700">Excepção</Badge> : <span className="text-red-600">Falta</span> },
@@ -137,14 +137,14 @@ export function DespesasView() {
         {sel && (
           <div className="space-y-3 text-sm">
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div><span className="text-muted-foreground">Viagem:</span> {sel.trip?.code ?? '—'}</div>
-              <div><span className="text-muted-foreground">Motorista:</span> {sel.driver?.name ?? '—'}</div>
+              <div><span className="text-muted-foreground">Viagem:</span> {sel.trip?.code ?? '-'}</div>
+              <div><span className="text-muted-foreground">Motorista:</span> {sel.driver?.name ?? '-'}</div>
               <div><span className="text-muted-foreground">Data/hora:</span> {fmtData(sel.expenseDate, true)}</div>
-              <div><span className="text-muted-foreground">Estabelecimento:</span> {sel.vendor ?? '—'}</div>
+              <div><span className="text-muted-foreground">Estabelecimento:</span> {sel.vendor ?? '-'}</div>
               {sel.lat != null && <div className="col-span-2"><span className="text-muted-foreground">GPS:</span> {sel.lat.toFixed(5)}, {(sel.lng ?? 0).toFixed(5)} <a className="text-teal-700 underline ml-1" target="_blank" rel="noreferrer" href={`https://www.openstreetmap.org/?mlat=${sel.lat}&mlon=${sel.lng}#map=16/${sel.lat}/${sel.lng}`}><FileSearch className="inline h-3 w-3" /> ver no mapa</a></div>}
               {sel.noReceiptReason && <div className="col-span-2 rounded border border-amber-300 bg-amber-50 p-2 text-amber-900">Excepção sem comprovativo: {sel.noReceiptReason}</div>}
               {sel.rejectReason && <div className="col-span-2 rounded border border-red-300 bg-red-50 p-2 text-red-900">Rejeição ({sel.rejectCategory}): {sel.rejectReason}</div>}
-              {sel.duplicateFlag && <div className="col-span-2 rounded border border-amber-300 bg-amber-50 p-2 text-amber-900">Possível duplicado ({Math.round((sel.duplicateScore ?? 0) * 100)}%) — decisão final cabe ao aprovador (AT-015).</div>}
+              {sel.duplicateFlag && <div className="col-span-2 rounded border border-amber-300 bg-amber-50 p-2 text-amber-900">Possível duplicado ({Math.round((sel.duplicateScore ?? 0) * 100)}%) - decisão final cabe ao aprovador.</div>}
             </div>
             {sel.attachments.length > 0 ? (
               <div>
@@ -170,18 +170,18 @@ export function DespesasView() {
               </div>
             )}
             {sel.duplicateFlag && podeAprovar && (
-              <Button size="sm" variant="ghost" onClick={() => limparDuplicado(sel)}>Revisão concluída — limpar sinal de duplicado</Button>
+              <Button size="sm" variant="ghost" onClick={() => limparDuplicado(sel)}>Revisão concluída - limpar sinal de duplicado</Button>
             )}
           </div>
         )}
       </Modal>
 
-      {/* Decisão com motivo obrigatório (FIN-014) */}
+      {/* Decisão com motivo obrigatório */}
       <Modal open={!!decisao} onOpenChange={(v) => !v && setDecisao(null)}
         title={decisao?.tipo === 'approve' ? 'Aprovar despesa' : decisao?.tipo === 'void' ? 'Anular despesa (fluxo controlado)' : 'Rejeitar/devolver despesa'}
         description={decisao?.tipo === 'approve'
-          ? 'Confirme imagem, valor, moeda, geolocalização, orçamento e possíveis duplicados (FR-056).'
-          : 'A rejeição/devolução exige categoria de motivo e nota; o motorista é notificado (FIN-014).'}
+          ? 'Confirme imagem, valor, moeda, geolocalização, orçamento e possíveis duplicados.'
+          : 'A rejeição/devolução exige categoria de motivo e nota; o motorista é notificado.'}
         footer={
           <>
             <Button variant="outline" onClick={() => setDecisao(null)}>Cancelar</Button>
@@ -199,7 +199,7 @@ export function DespesasView() {
         {decisao?.tipo === 'approve' && sel && (
           <div className="space-y-2 text-sm">
             <p>Aprovar <b>{fmtMT(sel.amountMinor, sel.currency)}</b> da viagem <b>{sel.trip?.code}</b> ({CAT_LABEL[sel.category]}).</p>
-            <p className="text-xs text-muted-foreground">Operação financeira — resumo do impacto registado em auditoria (UX-004, §4.1).</p>
+            <p className="text-xs text-muted-foreground">Operação financeira - resumo do impacto registado em auditoria.</p>
           </div>
         )}
       </Modal>

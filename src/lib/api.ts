@@ -1,6 +1,6 @@
 // =====================================================================
-// SIGFCO — Infra-estrutura de API: sessão, permissões, auditoria,
-// rate limiting e respostas padronizadas (SEC-003, SEC-008, SEC-009).
+// SIGFCO - Infra-estrutura de API: sessão, permissões, auditoria,
+// rate limiting e respostas padronizadas.
 // =====================================================================
 import 'server-only'
 import { NextRequest, NextResponse } from 'next/server'
@@ -17,7 +17,7 @@ export function jsonError(status: number, message: string, extra?: Record<string
   return NextResponse.json({ error: message, ...(extra || {}) }, { status })
 }
 
-// ------------------------- Auditoria (SEC-009) -----------------------
+// ------------------------- Auditoria -----------------------
 export async function audit(params: {
   req?: NextRequest
   ctx?: SessionContext | null
@@ -51,7 +51,7 @@ export async function audit(params: {
   }
 }
 
-// ------------------------- Rate limiting (SEC-008) -------------------
+// ------------------------- Rate limiting -------------------
 const buckets = new Map<string, { count: number; resetAt: number }>()
 
 export function rateLimit(key: string, limit: number, windowMs: number): boolean {
@@ -117,15 +117,15 @@ export function withAuth(
 }
 
 // Escopo de empresa: PLATFORM_ADMIN pode operar entre empresas através de
-// ?companyId= (acesso excepcional auditado — PRV-003); restantes perfis
-// estão presos à própria empresa (AT-001).
+// ?companyId=; restantes perfis
+// estão presos à própria empresa.
 export function scopeCompanyId(ctx: SessionContext, req: NextRequest): string {
   const requested = req.nextUrl.searchParams.get('companyId')
   if (ctx.user.role === 'PLATFORM_ADMIN') {
     return requested || ctx.user.companyId || ''
   }
   if (requested && requested !== ctx.user.companyId) {
-    // tentativa de fuga de tenant — registada e negada (AT-001)
+    // tentativa de fuga de tenant - registada e negada
     audit({ req, ctx, action: 'TENANT_ESCAPE_ATTEMPT', entity: 'Company', entityId: requested })
     throw new Error('Acesso negado a dados de outra empresa.')
   }

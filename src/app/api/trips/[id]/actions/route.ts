@@ -1,7 +1,7 @@
 // =====================================================================
-// SIGFCO — Acções do ciclo de vida da viagem (§5.1, FR-035..038, AT-003/016/017/023)
+// SIGFCO - Acções do ciclo de vida da viagem
 // Todas as transições validadas NO SERVIDOR; operações críticas auditadas;
-// NÃO existe bypass do checklist bloqueante (FR-044 — sem "continuar mesmo assim").
+// NÃO existe bypass do checklist bloqueante.
 // =====================================================================
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
@@ -23,7 +23,7 @@ type Body = {
   departureOdometerKm?: number
   arrivalOdometerKm?: number
   podAttachmentId?: string
-  force?: boolean // nunca aceite em itens críticos — apenas para pendências não críticas
+  force?: boolean // nunca aceite em itens críticos - apenas para pendências não críticas
 }
 
 export const POST = withAuth(async ({ ctx, req, params }) => {
@@ -47,11 +47,11 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
       conflictCheck(companyId, trip.vehicleId, trip.driverId, trip.plannedStart, trip.plannedEnd, trip.id),
     ])
     if (blockers.length) return jsonError(400, 'Bloqueios de elegibilidade impendem o planeamento.', { blockers })
-    if (conflicts.length) return jsonError(409, 'Conflitos de recursos (§5.3).', { conflicts })
+    if (conflicts.length) return jsonError(409, 'Conflitos de recursos.', { conflicts })
     const approvedRoute = trip.waypointsJson
     const updated = await db.trip.update({
       where: { id: trip.id },
-      data: { status: 'PLANNED', approvedRouteJson: approvedRoute }, // FR-031: guarda versão aprovada
+      data: { status: 'PLANNED', approvedRouteJson: approvedRoute }, //: guarda versão aprovada
     })
     await auditAct({ status: updated.status })
     await recomputeVehicleState(trip.vehicleId)
@@ -62,7 +62,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
   if (body.action === 'send_to_checklist') {
     const t = transitionAllowed(trip.status, 'AWAITING_CHECKLIST')
     if (!t.ok) return jsonError(409, t.reason!)
-    // instancia a checklist a partir do template activo (FR-043)
+    // instancia a checklist a partir do template activo
     const template = await db.checklistTemplate.findFirst({ where: { companyId, active: true } })
     if (!template) return jsonError(400, 'Sem template de checklist activo. Configure a checklist da empresa.')
     const items = JSON.parse(template.itemsJson)
@@ -76,13 +76,13 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
     return jsonOk({ trip: updated })
   }
 
-  // -------- autorização de partida (exige checklist aprovada — AT-003) --------
+  // -------- autorização de partida --------
   if (body.action === 'authorize') {
     const t = transitionAllowed(trip.status, 'AUTHORIZED_DEPARTURE')
     if (!t.ok) return jsonError(409, t.reason!)
     if (!trip.checklist || trip.checklist.status !== 'PASSED') {
       const blockers = trip.checklist ? checklistBlockers(trip.checklist.itemsJson).blockers : ['Checklist pré-partida ainda não submetida pelo motorista.']
-      return jsonError(400, 'Viagem bloqueada: checklist pré-partida não aprovada (FR-035/FR-044).', { blockers })
+      return jsonError(400, 'Viagem bloqueada: checklist pré-partida não aprovada.', { blockers })
     }
     const [blockers] = await Promise.all([resourceBlockers(companyId, trip.vehicleId, trip.driverId)])
     if (blockers.length) return jsonError(400, 'Bloqueios de segurança/documentação activos.', { blockers })
@@ -92,15 +92,15 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
     return jsonOk({ trip: updated })
   }
 
-  // -------- partida (FR-036: hora + localização + quilometragem) --------
+  // -------- partida --------
   if (body.action === 'depart') {
     const t = transitionAllowed(trip.status, 'IN_TRANSIT')
     if (!t.ok) return jsonError(409, t.reason!)
     if (trip.status !== 'AUTHORIZED_DEPARTURE') return jsonError(409, 'Viagem não autorizada para partida.')
-    if (body.departureOdometerKm === undefined) return jsonError(400, 'Registe a quilometragem de partida (FR-015).')
+    if (body.departureOdometerKm === undefined) return jsonError(400, 'Registe a quilometragem de partida.')
     const odo = Number(body.departureOdometerKm)
     if (odo < trip.vehicle.odometerKm)
-      return jsonError(400, `Quilometragem de partida (${odo}) inferior à registada no veículo (${trip.vehicle.odometerKm}) — FR-015.`)
+      return jsonError(400, `Quilometragem de partida (${odo}) inferior à registada no veículo (${trip.vehicle.odometerKm}) -.`)
 
     const updated = await db.$transaction(async (tx) => {
       const u = await tx.trip.update({
@@ -130,7 +130,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
     const to = body.action === 'pause' ? 'PAUSED' : 'IN_TRANSIT'
     const t = transitionAllowed(trip.status, to)
     if (!t.ok) return jsonError(409, t.reason!)
-    if (body.action === 'pause' && !body.reason) return jsonError(400, 'Motivo da paragem é obrigatório (§5.1: motivo, local, previsão).')
+    if (body.action === 'pause' && !body.reason) return jsonError(400, 'Motivo da paragem é obrigatório.')
     const updated = await db.$transaction(async (tx) => {
       const u = await tx.trip.update({ where: { id: trip.id }, data: { status: to } })
       await tx.tripEvent.create({
@@ -147,13 +147,13 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
     return jsonOk({ trip: updated })
   }
 
-  // -------- chegada (valida POD e quilometragem final — FR-038) --------
+  // -------- chegada --------
   if (body.action === 'arrive') {
     const t = transitionAllowed(trip.status, 'ARRIVED')
     if (!t.ok) return jsonError(409, t.reason!)
     const odo = body.arrivalOdometerKm !== undefined ? Number(body.arrivalOdometerKm) : null
     if (odo !== null && trip.startOdometerKm != null && odo < trip.startOdometerKm)
-      return jsonError(400, `Quilometragem de chegada (${odo}) inferior à de partida (${trip.startOdometerKm}) — FR-015.`)
+      return jsonError(400, `Quilometragem de chegada (${odo}) inferior à de partida (${trip.startOdometerKm}) -.`)
     const updated = await db.$transaction(async (tx) => {
       const u = await tx.trip.update({
         where: { id: trip.id },
@@ -175,7 +175,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
     return jsonOk({ trip: updated })
   }
 
-  // -------- pedido de fecho: lista pendências (FR-038, AT-023) --------
+  // -------- pedido de fecho: lista pendências --------
   if (body.action === 'request_close') {
     const t = transitionAllowed(trip.status, 'AWAITING_RECONCILIATION')
     if (!t.ok) return jsonError(409, t.reason!)
@@ -183,7 +183,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
     const pendingCritical: string[] = []
     if (trip.endOdometerKm == null) pendingCritical.push('Quilometragem final em falta.')
     if (reconciliation.pendingExpenses > 0) pendingCritical.push(`${reconciliation.pendingExpenses} despesas ainda pendentes de decisão.`)
-    if (!trip.podAttachmentId) pendingCritical.push('Prova de entrega (POD) não anexada — se aplicável à operação.')
+    if (!trip.podAttachmentId) pendingCritical.push('Prova de entrega (POD) não anexada - se aplicável à operação.')
     const updated = await db.trip.update({
       where: { id: trip.id },
       data: { status: 'AWAITING_RECONCILIATION', closeBlockers: JSON.stringify(pendingCritical) },
@@ -192,7 +192,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
     return jsonOk({ trip: updated, reconciliation, pendingCritical })
   }
 
-  // -------- fecho (operacional + financeiro, AT-023) --------
+  // -------- fecho --------
   if (body.action === 'close') {
     const t = transitionAllowed(trip.status, 'CLOSED')
     if (!t.ok) return jsonError(409, t.reason!)
@@ -200,7 +200,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
     const pending = JSON.parse((trip.closeBlockers ?? '[]') as string) as string[]
     const critical = pending.filter((p) => !p.includes('POD')) // POD é bloqueante apenas quando configurado
     if (critical.length > 0 && !body.force)
-      return jsonError(400, 'Existem pendências críticas — fecho bloqueado (AT-023).', { pending: critical })
+      return jsonError(400, 'Existem pendências críticas - fecho bloqueado.', { pending: critical })
     if (critical.length > 0 && body.force && ctx.user.role !== 'FINANCE' && ctx.user.role !== 'COMPANY_ADMIN' && ctx.user.role !== 'PLATFORM_ADMIN')
       return jsonError(403, 'Só finanças/administração pode fechar com pendências excepcionadas (regra controlada documentada).')
     const updated = await db.trip.update({
@@ -214,11 +214,11 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
     return jsonOk({ trip: updated, reconciliation })
   }
 
-  // -------- reabertura autorizada e auditada (§5.1) --------
+  // -------- reabertura autorizada e auditada --------
   if (body.action === 'reopen') {
     if (!['CLOSED', 'CANCELLED'].includes(trip.status)) return jsonError(409, 'Só viagens fechadas/canceladas podem ser reabertas.')
     if (!['FINANCE', 'COMPANY_ADMIN', 'PLATFORM_ADMIN'].includes(ctx.user.role))
-      return jsonError(403, 'Reabertura exige utilizador autorizado (§5.1).')
+      return jsonError(403, 'Reabertura exige utilizador autorizado.')
     if (!body.reason) return jsonError(400, 'Motivo da reabertura é obrigatório e ficará em auditoria.')
     const updated = await db.trip.update({ where: { id: trip.id }, data: { status: 'AWAITING_RECONCILIATION' } })
     await auditAct({ status: updated.status }, body.reason)
@@ -230,7 +230,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
   if (body.action === 'cancel') {
     const t = transitionAllowed(trip.status, 'CANCELLED')
     if (!t.ok) return jsonError(409, t.reason!)
-    if (!body.reason) return jsonError(400, 'Motivo do cancelamento é obrigatório (§5.1).')
+    if (!body.reason) return jsonError(400, 'Motivo do cancelamento é obrigatório.')
     const updated = await db.trip.update({
       where: { id: trip.id },
       data: { status: 'CANCELLED', cancelReason: body.reason, cancelCostsMinor: body.note ? undefined : 0 },

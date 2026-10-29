@@ -1,5 +1,5 @@
-// SIGFCO — Manutenção (MNT-001..011), pneus e combustível (FUEL-001..004)
-// Ordem de serviço crítica bloqueia despacho até libertação autorizada (AT-018)
+// SIGFCO - Manutenção, pneus e combustível
+// Ordem de serviço crítica bloqueia despacho até libertação autorizada
 'use client'
 
 import * as React from 'react'
@@ -22,7 +22,7 @@ export function ManutencaoView({ abaInicial = 'os' }: { abaInicial?: string }) {
   const { sessao } = useApp()
   const podeGerir = ['COMPANY_ADMIN', 'PLATFORM_ADMIN', 'FLEET_MANAGER', 'MECHANIC', 'BRANCH_MANAGER'].includes(sessao.user.role)
   return (
-    <Page title="Manutenção, pneus e combustível" subtitle="Planos, ordens de serviço com bloqueio crítico, pneus com histórico e consumo esperado vs real (§10)" demo={sessao.company?.isDemo}>
+    <Page title="Manutenção, pneus e combustível" subtitle="Planos, ordens de serviço com bloqueio crítico, pneus com histórico e consumo esperado vs real" demo={sessao.company?.isDemo}>
       <Tabs defaultValue={abaInicial}>
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="os">Ordens de serviço</TabsTrigger>
@@ -72,11 +72,11 @@ function OrdensServico({ podeGerir }: { podeGerir: boolean }) {
   return (
     <div className="space-y-4">
       <ErroAlerta erro={erro} />
-      <Panel title={`Ordens de serviço (${rows.length})`} description="Críticas bloqueiam atribuição de nova viagem até libertação com prova (MNT-004, AT-018)"
+      <Panel title={`Ordens de serviço (${rows.length})`} description="Críticas bloqueiam atribuição de nova viagem até libertação com prova"
         actions={podeGerir && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Abrir OS</Button>}>
         <DataTable rows={rows} columns={[
           { key: 'code', header: 'OS', render: (w) => <span className="font-medium">{w.code}</span> },
-          { key: 'vehicle', header: 'Veículo', render: (w) => w.vehicle?.plate ?? '—' },
+          { key: 'vehicle', header: 'Veículo', render: (w) => w.vehicle?.plate ?? '-' },
           { key: 'symptom', header: 'Sintoma/Diagnóstico', render: (w) => <div><div>{w.symptom}</div>{w.diagnosis && <div className="text-xs text-muted-foreground">{w.diagnosis}</div>}</div> },
           { key: 'priority', header: 'Prioridade', render: (w) => <StatusBadge estado={w.priority === 'CRITICAL' || w.critical ? 'CRITICAL' : w.priority} mapa={{ LOW: 'Baixa', NORMAL: 'Normal', HIGH: 'Alta', CRITICAL: 'Crítica' }} />, hideOnMobile: true },
           { key: 'custos', header: 'Custos', render: (w) => fmtMT(w.laborCostMinor + w.partsCostMinor, w.currency), hideOnMobile: true },
@@ -87,7 +87,7 @@ function OrdensServico({ podeGerir }: { podeGerir: boolean }) {
         ]} />
       </Panel>
 
-      <Modal open={novo} onOpenChange={setNovo} title="Abrir ordem de serviço (MNT-003)"
+      <Modal open={novo} onOpenChange={setNovo} title="Abrir ordem de serviço"
         footer={<><Button variant="outline" onClick={() => setNovo(false)}>Cancelar</Button><Button onClick={criar}>Abrir OS</Button></>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Campo label="Veículo" required><Selecao value={form.vehicleId ?? ''} onChange={(v) => setForm({ ...form, vehicleId: v })} opcoes={[{ value: '', label: 'Seleccionar…' }, ...vehicles.map((v) => ({ value: v.id, label: v.plate }))]} /></Campo>
@@ -95,12 +95,12 @@ function OrdensServico({ podeGerir }: { podeGerir: boolean }) {
           <Campo label="Prioridade"><Selecao value={form.priority ?? 'NORMAL'} onChange={(v) => setForm({ ...form, priority: v })} opcoes={[{ value: 'LOW', label: 'Baixa' }, { value: 'NORMAL', label: 'Normal' }, { value: 'HIGH', label: 'Alta' }, { value: 'CRITICAL', label: 'Crítica' }]} /></Campo>
           <Campo label="Oficina"><EntradaTexto value={form.workshop ?? ''} onChange={(e) => setForm({ ...form, workshop: e.target.value })} /></Campo>
           <div className="sm:col-span-2"><Campo label="Sintoma / avaria" required><TextoLongo rows={2} value={form.symptom ?? ''} onChange={(e) => setForm({ ...form, symptom: e.target.value })} /></Campo></div>
-          <Campo label="Crítica (bloqueia despacho)" hint="MNT-004"><Selecao value={form.critical ?? '0'} onChange={(v) => setForm({ ...form, critical: v })} opcoes={[{ value: '0', label: 'Não' }, { value: '1', label: 'Sim' }]} /></Campo>
+          <Campo label="Crítica (bloqueia despacho)" hint=""><Selecao value={form.critical ?? '0'} onChange={(v) => setForm({ ...form, critical: v })} opcoes={[{ value: '0', label: 'Não' }, { value: '1', label: 'Sim' }]} /></Campo>
         </div>
       </Modal>
 
       <Modal open={!!libertar} onOpenChange={(v) => !v && setLibertar(null)} title={`Libertar ${libertar?.code ?? ''}`}
-        description="A libertação exige motivo/prova e fica registada com autor e data (MNT-004)."
+        description="A libertação exige motivo/prova e fica registada com autor e data."
         footer={
           <>
             <Button variant="outline" onClick={() => setLibertar(null)}>Cancelar</Button>
@@ -135,13 +135,13 @@ function Planos({ podeGerir }: { podeGerir: boolean }) {
   }
 
   return (
-    <Panel title={`Planos preventivos (${rows.length})`} description="Intervalos por quilometragem/tempo com alertas antecipados (MNT-001/002)"
+    <Panel title={`Planos preventivos (${rows.length})`} description="Intervalos por quilometragem/tempo com alertas antecipados"
       actions={podeGerir && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Novo plano</Button>}>
       <DataTable rows={rows} columns={[
-        { key: 'vehicle', header: 'Veículo', render: (p) => vehicles.find((v) => v.id === p.vehicleId)?.plate ?? '—' },
+        { key: 'vehicle', header: 'Veículo', render: (p) => vehicles.find((v) => v.id === p.vehicleId)?.plate ?? '-' },
         { key: 'serviceType', header: 'Serviço', render: (p) => ({ oleo: 'Óleo', filtros: 'Filtros', travoes: 'Travões', pneus: 'Pneus', suspensao: 'Suspensão', arrefecimento: 'Arrefecimento', transmissao: 'Transmissão', inspecao: 'Inspecção' }[p.serviceType] ?? p.serviceType) },
-        { key: 'intervalKm', header: 'Intervalo', render: (p) => `${p.intervalKm?.toLocaleString('pt-PT') ?? '—'} km${p.intervalDays ? ` / ${p.intervalDays} d` : ''}` },
-        { key: 'lastDoneKm', header: 'Última aos', render: (p) => p.lastDoneKm ? `${p.lastDoneKm.toLocaleString('pt-PT')} km` : '—', hideOnMobile: true },
+        { key: 'intervalKm', header: 'Intervalo', render: (p) => `${p.intervalKm?.toLocaleString('pt-PT') ?? '-'} km${p.intervalDays ? ` / ${p.intervalDays} d` : ''}` },
+        { key: 'lastDoneKm', header: 'Última aos', render: (p) => p.lastDoneKm ? `${p.lastDoneKm.toLocaleString('pt-PT')} km` : '-', hideOnMobile: true },
         { key: 'active', header: 'Activo', render: (p) => p.active ? 'Sim' : 'Não' },
       ]} />
       <Modal open={novo} onOpenChange={setNovo} title="Novo plano preventivo"
@@ -150,7 +150,7 @@ function Planos({ podeGerir }: { podeGerir: boolean }) {
           <Campo label="Veículo" required><Selecao value={form.vehicleId ?? ''} onChange={(v) => setForm({ ...form, vehicleId: v })} opcoes={[{ value: '', label: 'Seleccionar…' }, ...vehicles.map((v) => ({ value: v.id, label: v.plate }))]} /></Campo>
           <Campo label="Serviço"><Selecao value={form.serviceType ?? 'oleo'} onChange={(v) => setForm({ ...form, serviceType: v })} opcoes={[{ value: 'oleo', label: 'Óleo' }, { value: 'filtros', label: 'Filtros' }, { value: 'travoes', label: 'Travões' }, { value: 'pneus', label: 'Pneus' }, { value: 'suspensao', label: 'Suspensão' }, { value: 'inspecao', label: 'Inspecção' }]} /></Campo>
           <Campo label="Intervalo (km)"><EntradaTexto type="number" value={form.intervalKm ?? ''} onChange={(e) => setForm({ ...form, intervalKm: e.target.value })} /></Campo>
-          <Campo label="Alerta antecipado (km antes)" hint="MNT-002"><EntradaTexto type="number" value={form.thresholdKm ?? ''} onChange={(e) => setForm({ ...form, thresholdKm: e.target.value })} /></Campo>
+          <Campo label="Alerta antecipado (km antes)" hint=""><EntradaTexto type="number" value={form.thresholdKm ?? ''} onChange={(e) => setForm({ ...form, thresholdKm: e.target.value })} /></Campo>
         </div>
       </Modal>
     </Panel>
@@ -183,12 +183,12 @@ function Pneus({ podeGerir }: { podeGerir: boolean }) {
 
   return (
     <div className="space-y-4">
-      <Panel title={`Pneus (${tires.length})`} description="Cadastro com posição, histórico de rotação/reparação/substituição (MNT-010)"
+      <Panel title={`Pneus (${tires.length})`} description="Cadastro com posição, histórico de rotação/reparação/substituição"
         actions={podeGerir && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Novo pneu</Button>}>
         <DataTable rows={tires} columns={[
           { key: 'serial', header: 'Série', render: (t) => <span className="font-medium">{t.serial}</span> },
-          { key: 'brand', header: 'Marca/Medida', render: (t) => `${t.brand ?? '—'} ${t.size ?? ''}`, hideOnMobile: true },
-          { key: 'vehicle', header: 'Veículo/Posição', render: (t) => t.vehicleId ? `${vehicles.find((v) => v.id === t.vehicleId)?.plate ?? '—'} • ${t.position ?? '—'}` : '—' },
+          { key: 'brand', header: 'Marca/Medida', render: (t) => `${t.brand ?? '-'} ${t.size ?? ''}`, hideOnMobile: true },
+          { key: 'vehicle', header: 'Veículo/Posição', render: (t) => t.vehicleId ? `${vehicles.find((v) => v.id === t.vehicleId)?.plate ?? '-'} • ${t.position ?? '-'}` : '-' },
           { key: 'status', header: 'Estado', render: (t) => <StatusBadge estado={t.status} mapa={{ IN_STOCK: 'Em stock', INSTALLED: 'Instalado', REPAIR: 'Em reparação', RETIRED: 'Reformado' }} /> },
           { key: 'actions', header: '', render: (t) => podeGerir && <Button size="sm" variant="outline" onClick={() => setMov(t)}>Movimentar</Button> },
         ]} />
@@ -196,10 +196,10 @@ function Pneus({ podeGerir }: { podeGerir: boolean }) {
       <Panel title="Histórico de movimentos">
         <DataTable rows={events} columns={[
           { key: 'date', header: 'Data', render: (e) => fmtData(e.date) },
-          { key: 'tire', header: 'Pneu', render: (e) => tires.find((t) => t.id === e.tireId)?.serial ?? '—' },
+          { key: 'tire', header: 'Pneu', render: (e) => tires.find((t) => t.id === e.tireId)?.serial ?? '-' },
           { key: 'type', header: 'Movimento', render: (e) => ({ INSTALL: 'Instalação', REMOVE: 'Remoção', ROTATE: 'Rotação', REPAIR: 'Reparação', REPLACE: 'Substituição' }[e.type] ?? e.type) },
-          { key: 'position', header: 'Posição', render: (e) => e.position ?? '—', hideOnMobile: true },
-          { key: 'note', header: 'Nota', render: (e) => e.note ?? '—', hideOnMobile: true },
+          { key: 'position', header: 'Posição', render: (e) => e.position ?? '-', hideOnMobile: true },
+          { key: 'note', header: 'Nota', render: (e) => e.note ?? '-', hideOnMobile: true },
         ]} />
       </Panel>
       <Modal open={novo} onOpenChange={setNovo} title="Novo pneu"
@@ -249,7 +249,7 @@ function Combustivel({ podeRegistar }: { podeRegistar: boolean }) {
   return (
     <div className="space-y-4">
       <ErroAlerta erro={erro} />
-      <Panel title="Consumo esperado vs real (FUEL-002)" description="Pressupostos do cálculo apresentados — sem dados completos não há indicador fiável (§15.3)">
+      <Panel title="Consumo esperado vs real" description="Pressupostos do cálculo apresentados - sem dados completos não há indicador fiável">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {consumo.map((c) => (
             <div key={c.vehicle} className="rounded-lg border p-3">
@@ -269,20 +269,20 @@ function Combustivel({ podeRegistar }: { podeRegistar: boolean }) {
         </div>
       </Panel>
 
-      <Panel title={`Abastecimentos (${logs.length})`} description="Anomalias sinalizadas para revisão humana, nunca corrigidas em silêncio (FUEL-003)"
+      <Panel title={`Abastecimentos (${logs.length})`} description="Anomalias sinalizadas para revisão humana, nunca corrigidas em silêncio"
         actions={podeRegistar && <Button size="sm" onClick={() => setNovo(true)}><Plus className="mr-1 h-4 w-4" />Registar abastecimento</Button>}>
         <DataTable rows={logs} columns={[
           { key: 'date', header: 'Data', render: (f) => fmtData(f.deviceTime, true) },
-          { key: 'vehicle', header: 'Veículo', render: (f) => f.vehicle?.plate ?? '—' },
+          { key: 'vehicle', header: 'Veículo', render: (f) => f.vehicle?.plate ?? '-' },
           { key: 'liters', header: 'Litros', render: (f) => <b>{f.liters} L</b> },
           { key: 'total', header: 'Total', render: (f) => fmtMT(f.totalMinor, f.currency) },
           { key: 'odo', header: 'Odómetro', render: (f) => `${Math.round(f.odoKm).toLocaleString('pt-PT')} km`, hideOnMobile: true },
-          { key: 'station', header: 'Posto', render: (f) => f.station ?? '—', hideOnMobile: true },
-          { key: 'flags', header: 'Sinais', render: (f) => f.flagsJson ? <Badge variant="outline" className="border-amber-500 text-amber-700">Anomalia</Badge> : '—' },
+          { key: 'station', header: 'Posto', render: (f) => f.station ?? '-', hideOnMobile: true },
+          { key: 'flags', header: 'Sinais', render: (f) => f.flagsJson ? <Badge variant="outline" className="border-amber-500 text-amber-700">Anomalia</Badge> : '-' },
         ]} />
       </Panel>
 
-      <Modal open={novo} onOpenChange={setNovo} title="Registar abastecimento (FUEL-001)"
+      <Modal open={novo} onOpenChange={setNovo} title="Registar abastecimento"
         footer={<><Button variant="outline" onClick={() => setNovo(false)}>Cancelar</Button><Button onClick={criar}>Registar</Button></>}>
         <div className="grid gap-3 sm:grid-cols-2">
           <Campo label="Veículo" required><Selecao value={form.vehicleId ?? ''} onChange={(v) => setForm({ ...form, vehicleId: v })} opcoes={[{ value: '', label: 'Seleccionar…' }, ...vehicles.map((v) => ({ value: v.id, label: v.plate }))]} /></Campo>

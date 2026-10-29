@@ -1,6 +1,6 @@
 // =====================================================================
-// SIGFCO — RBAC: matriz de permissões por perfil (§4, §4.1)
-// A autorização é verificada NO SERVIDOR em cada chamada (§4.1): esconder
+// SIGFCO - RBAC: matriz de permissões por perfil
+// A autorização é verificada NO SERVIDOR em cada chamada: esconder
 // um botão na interface não é controlo de segurança.
 // =====================================================================
 import type { Role } from './constantes'
@@ -32,13 +32,13 @@ const ALL: Perm[] = [
   'report.read', 'report.export', 'audit.read', 'alert.handle', 'settings.manage',
 ]
 
-// Matriz por perfil — alinhada com §4 (responsabilidades e limites):
+// Matriz por perfil - alinhada com (responsabilidades e limites):
 // · Despachante NÃO aprova despesas (segregação de funções)
 // · Motorista só vê a sua viagem (expense.own/trip.own), sem orçamento global
 // · Mecânico não altera despesas financeiras aprovadas
 // · Auditor só leitura
-// · Financeiro pode não ter gps.view contínuo — por defeito tem leitura;
-//   a política de acesso excepcional fica registada em auditoria (PRV-003)
+// · Financeiro pode não ter gps.view contínuo - por defeito tem leitura;
+//   a política de acesso excepcional fica registada em auditoria
 const MATRIX: Record<Role, Perm[]> = {
   PLATFORM_ADMIN: ALL,
   COMPANY_ADMIN: ALL,

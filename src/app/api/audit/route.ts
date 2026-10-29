@@ -1,4 +1,4 @@
-// SIGFCO — Trilha de auditoria (SEC-009, AT-019): consulta com filtros;
+// SIGFCO - Trilha de auditoria: consulta com filtros;
 // exportação sensível também auditada
 import { withAuth, jsonOk, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'

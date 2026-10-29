@@ -1,8 +1,8 @@
 // =====================================================================
-// SIGFCO — Checklist pré-partida (§6.5 — REQUISITO CRÍTICO do carregador)
+// SIGFCO - Checklist pré-partida
 // O item "carregador de telemóvel funcional" é bloqueante e sistémico:
-// não pode ser removido pelo cliente e falha → partida bloqueada (AT-003).
-// Motorista submete; despacho/gestor autorizam (FR-035, sem bypass FR-044).
+// não pode ser removido pelo cliente e falha → partida bloqueada.
+// Motorista submete; despacho/gestor autorizam.
 // =====================================================================
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
@@ -27,7 +27,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
   const body = await readJson<{ items: Array<{ key: string; ok: boolean; note?: string }> }>(req)
   if (!trip.checklist) return jsonError(400, 'Checklist ainda não instanciada para esta viagem.')
 
-  // Motorista só submete a checklist da PRÓPRIA viagem (AT-002)
+  // Motorista só submete a checklist da PRÓPRIA viagem
   if (ctx.user.role === 'DRIVER' && ctx.user.driverId !== trip.driverId)
     return jsonError(403, 'Só pode submeter a checklist da sua própria viagem.')
 
@@ -36,7 +36,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
 
   // REQUISITO CRÍTICO: o item do carregador tem de ser respondido
   const chargerAnswer = answers.get(CHARGER_ITEM_KEY)
-  if (!chargerAnswer) return jsonError(400, 'O item "carregador de telemóvel" tem de ser confirmado (requisito crítico §6.5).')
+  if (!chargerAnswer) return jsonError(400, 'O item "carregador de telemóvel" tem de ser confirmado.')
 
   const merged = templateItems.map((item) => {
     const a = answers.get(item.key)
@@ -51,7 +51,7 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
     data: { itemsJson: JSON.stringify(merged), status, blockedReason: passed ? null : blockers.join(' | '), completedById: ctx.user.id, completedAt: new Date() },
   })
 
-  // FR-044: bloqueio registado; sem botão "continuar mesmo assim"
+  //: bloqueio registado; sem botão "continuar mesmo assim"
   await db.trip.update({
     where: { id: trip.id },
     data: status === 'FAILED' ? { status: 'AWAITING_CHECKLIST' } : {},
@@ -65,6 +65,6 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
   })
 
   return jsonOk({ checklist: updated, blockers, passed, message: passed
-    ? 'Checklist aprovada — viagem pronta para autorização de partida.'
-    : `Viagem bloqueada até correcção: ${blockers.join('; ')}. Não existe continuação forçada (FR-044).` })
+    ? 'Checklist aprovada - viagem pronta para autorização de partida.'
+    : `Viagem bloqueada até correcção: ${blockers.join('; ')}. Não existe continuação forçada.` })
 }, { anyPerm: ['checklist.submit', 'trip.manage'] })

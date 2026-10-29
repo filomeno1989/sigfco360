@@ -1,4 +1,4 @@
-// SIGFCO — Kit de componentes partilhados (§11: tabelas com pesquisa,
+// SIGFCO - Kit de componentes partilhados (: tabelas com pesquisa,
 // estados visíveis, confirmação para operações destrutivas, DEMO visível)
 'use client'
 
@@ -114,7 +114,7 @@ export function DataTable<T extends { id?: string }>({ columns, rows, empty, onR
                 className={cn('border-b last:border-0 transition-colors', onRowClick && 'cursor-pointer hover:bg-muted/50')}>
                 {columns.map((c) => (
                   <td key={c.key} className={cn('px-3 py-2.5 align-top', c.className, c.hideOnMobile && 'hidden md:table-cell')}>
-                    {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? '—')}
+                    {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? '-')}
                   </td>
                 ))}
               </tr>
@@ -225,13 +225,13 @@ export function Confirmacao({ open, onOpenChange, titulo, mensagem, onConfirm, p
       }>
       {exigirTexto && (
         <div className="space-y-1.5">
-          <Label>Digite <b>{exigirTexto}</b> para confirmar (operação crítica — UX-004)</Label>
+          <Label>Digite <b>{exigirTexto}</b> para confirmar</Label>
           <Input value={texto} onChange={(e) => setTexto(e.target.value)} />
         </div>
       )}
       {pedirMotivo && (
         <div className="space-y-1.5">
-          <Label>Motivo (obrigatório — fica registado na auditoria §4.1)</Label>
+          <Label>Motivo</Label>
           <Textarea rows={3} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Descreva o motivo…" />
         </div>
       )}

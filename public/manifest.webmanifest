@@ -1,7 +1,7 @@
 {
-  "name": "SIGFCO — Gestão de Frotas",
+  "name": "SIGFCO - Gestão de Frotas",
   "short_name": "SIGFCO",
-  "description": "Sistema Integrado de Gestão de Frotas e Controles Operacionais",
+  "description": "Sistema Integrado de Gestão de Frotas e Controlos Operacionais",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#09090b",

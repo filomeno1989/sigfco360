@@ -1,5 +1,5 @@
-// SIGFCO — Histórico de trajecto (GPS-013): ordem cronológica preservada,
-// pontos históricos e atrasados distinguíveis; paginação obrigatória (NFR-004)
+// SIGFCO - Histórico de trajecto: ordem cronológica preservada,
+// pontos históricos e atrasados distinguíveis; paginação obrigatória
 import { withAuth, jsonOk, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 

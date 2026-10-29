@@ -1,5 +1,5 @@
-// SIGFCO — Documentos e vencimentos (DOC-001..003, FR-011, FR-020)
-// Bloqueio de viagem quando documento obrigatório expirado (DOC-002)
+// SIGFCO - Documentos e vencimentos
+// Bloqueio de viagem quando documento obrigatório expirado
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 
@@ -24,7 +24,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
     orderBy: { expiresAt: 'asc' },
   })
 
-  // recalcular estado e criar alertas para expirados bloqueantes (DOC-002)
+  // recalcular estado e criar alertas para expirados bloqueantes
   for (const d of docs) {
     if (!d.expiresAt) continue
     const st = d.expiresAt < now ? 'EXPIRED' : d.expiresAt < in30 ? 'EXPIRING' : 'VALID'
@@ -36,7 +36,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
           await db.alert.create({
             data: { companyId, severity: 'CRITICAL', type: 'DOC_EXPIRED',
               title: `Documento obrigatório expirado: ${d.type}`,
-              message: `Documento ${d.number ?? ''} (${d.type}) expirou em ${d.expiresAt.toISOString().slice(0, 10)}. Viagens bloqueadas até actualização (DOC-002).`,
+              message: `Documento ${d.number ?? ''} (${d.type}) expirou em ${d.expiresAt.toISOString().slice(0, 10)}. Viagens bloqueadas até actualização.`,
               refType: 'DOCUMENT', refId: d.id },
           })
         }

@@ -1,4 +1,4 @@
-// SIGFCO — Painel inicial (§11.1, §15.1): viagens activas, frota, GPS,
+// SIGFCO - Painel inicial: viagens activas, frota, GPS,
 // alertas críticos, despesas pendentes, manutenção e documentos a expirar
 'use client'
 
@@ -48,7 +48,7 @@ export function DashboardView() {
   const ccy = sessao.company?.currencyBase ?? 'MZN'
 
   return (
-    <Page title={`Bom dia, ${sessao.user.name.split(' (')[0]}`} subtitle={`Resumo operacional — dados de ${sessao.company?.name}`}
+    <Page title={`Bom dia, ${sessao.user.name.split(' (')[0]}`} subtitle={`Resumo operacional - dados de ${sessao.company?.name}`}
       actions={<Button variant="outline" size="sm" onClick={carregar} disabled={busy}><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Actualizar</Button>}
       demo={sessao.company?.isDemo}>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -60,7 +60,7 @@ export function DashboardView() {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi label="Despesas aprovadas (30d)" value={fmtMT(aprovado, ccy)} hint={`${exp['APPROVED']?.count ?? 0} registos`} />
-        <Kpi label="Despesas pendentes (30d)" value={fmtMT(pendente, ccy)} hint="Submetidas + em revisão — não somadas às aprovadas (§15.3)" tone="warn" />
+        <Kpi label="Despesas pendentes (30d)" value={fmtMT(pendente, ccy)} hint="Submetidas + em revisão - não somadas às aprovadas" tone="warn" />
         <Kpi label="Documentos a expirar (30d)" value={data.indicators.docsExpiring30d} hint={`${data.indicators.docsExpiredBlocking} bloqueantes já expirados`} tone={data.indicators.docsExpiredBlocking > 0 ? 'crit' : 'muted'} />
         <Kpi label="Manutenção em aberto" value={data.indicators.workordersOpen} hint="Ordens de serviço activas" tone="muted" />
       </div>
@@ -93,11 +93,11 @@ export function DashboardView() {
           </div>
         </Panel>
 
-        <Panel title="Qualidade dos indicadores (§15.3)" description="Transparência sobre fontes e limitações">
+        <Panel title="Qualidade dos indicadores" description="Transparência sobre fontes e limitações">
           <ul className="space-y-1.5 text-sm text-muted-foreground">
             <li>• Despesas pendentes <b>não</b> são somadas às aprovadas nos totais.</li>
-            <li>• Tempo sem telemetria GPS <b>não</b> é contado como veículo parado (GPS-027).</li>
-            <li>• Consumo indicado como <i>estimado</i> quando o método é estimado (FUEL-002).</li>
+            <li>• Tempo sem telemetria GPS <b>não</b> é contado como veículo parado.</li>
+            <li>• Consumo indicado como <i>estimado</i> quando o método é estimado.</li>
             <li>• {data.indicators.pendingSyncRecords} registos de sincronização aguardam processamento.</li>
           </ul>
         </Panel>

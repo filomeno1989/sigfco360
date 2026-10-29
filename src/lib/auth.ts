@@ -1,8 +1,8 @@
 // =====================================================================
-// SIGFCO — Autenticação e sessões (SEC-002, SEC-003, MOB-002)
+// SIGFCO - Autenticação e sessões
 // Sessões em base de dados com token opaco; o cookie guarda o token
 // plano, a BD guarda apenas o hash SHA-256. Revogação imediata suportada
-// (perda de telemóvel / saída de trabalhador — §4.1).
+//.
 // =====================================================================
 import 'server-only'
 import crypto from 'crypto'
@@ -10,7 +10,7 @@ import { db } from '@/lib/db'
 import type { User, Session } from '@prisma/client'
 
 export const SESSION_COOKIE = 'sigfco_session'
-// Sessão de curta duração (SEC-002); renovada em actividade
+// Sessão de curta duração; renovada em actividade
 export const SESSION_TTL_HOURS = 12
 export const SESSION_IDLE_MINUTES = 240
 
@@ -66,7 +66,7 @@ export async function resolveSession(token: string | undefined | null): Promise<
   if (session.revokedAt) return null
   const now = new Date()
   if (session.expiresAt < now) return null
-  // expiração por inactividade — janela deslizante
+  // expiração por inactividade - janela deslizante
   const idleMs = now.getTime() - session.lastSeenAt.getTime()
   if (idleMs > SESSION_IDLE_MINUTES * 60_000) return null
   if (!session.user.active) return null

@@ -1,4 +1,4 @@
-// SIGFCO — Upload de anexos (FR-051, SEC-007, AT-011)
+// SIGFCO - Upload de anexos
 // Imagens já comprimidas no dispositivo; o servidor valida tipo real,
 // tamanho e guarda com nome interno aleatório + hash de integridade.
 import { withAuth, jsonOk, jsonError, audit, scopeCompanyId } from '@/lib/api'

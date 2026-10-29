@@ -1,9 +1,9 @@
 // =====================================================================
-// SIGFCO — Mapa operacional (§7.3, GPS-012/020/021/022, AT-006, AT-021)
+// SIGFCO - Mapa operacional
 // Regras visíveis: frescura inequívoca do último ponto; linha entre
 // pontos é apenas representação visual, claramente distinta de telemetria
-// observada (§7.4); telemetria antiga NUNCA apresentada como tempo real.
-// Tiles: OpenStreetMap (ARC-004 — sem download em massa; mapa offline
+// observada; telemetria antiga NUNCA apresentada como tempo real.
+// Tiles: OpenStreetMap ( - sem download em massa; mapa offline
 // dependerá de fornecedor licenciado, ver DECISOES_TECNICAS.md).
 // =====================================================================
 'use client'
@@ -90,7 +90,7 @@ export function MapaView() {
   const tickSimulador = async () => {
     try {
       const r = await api<{ point: { local: string; isHistoric: boolean } }>('/api/demo', { method: 'POST', body: { action: 'simulator-tick' } })
-      setSimMsg(`Ponto DEMO gerado em ${r.point.local}${r.point.isHistoric ? ' (com atraso — sem rede simulada)' : ''}. Fonte: SIMULATOR.`)
+      setSimMsg(`Ponto DEMO gerado em ${r.point.local}${r.point.isHistoric ? ' (com atraso - sem rede simulada)' : ''}. Fonte: SIMULATOR.`)
       carregar()
     } catch (e) { setSimMsg(e instanceof Error ? e.message : 'Falha no simulador.') }
   }
@@ -101,7 +101,7 @@ export function MapaView() {
     : [-19.2, 33.6]
 
   return (
-    <Page title="Mapa da frota" subtitle="Último ponto conhecido com frescura inequívoca — telemetria antiga nunca é apresentada como tempo real (GPS-012)"
+    <Page title="Mapa da frota" subtitle="Último ponto conhecido com frescura inequívoca - telemetria antiga nunca é apresentada como tempo real"
       actions={
         <>
           {isDemo && (
@@ -127,7 +127,7 @@ export function MapaView() {
               {fences.filter((f) => f.active).map((f) => (
                 <Circle key={f.id} center={[f.lat, f.lng]} radius={f.radiusM}
                   pathOptions={{ color: f.type === 'RESTRICTED' ? '#dc2626' : '#0f766e', fillColor: f.type === 'RESTRICTED' ? '#dc2626' : '#0f766e', fillOpacity: 0.06, weight: 1.5 }}>
-                  <Popup>{f.name} ({f.type}) — cerca geográfica</Popup>
+                  <Popup>{f.name} ({f.type}) - cerca geográfica</Popup>
                 </Circle>
               ))}
               {historico.length > 1 && (
@@ -143,7 +143,7 @@ export function MapaView() {
                       <b>{f.vehicle?.plate ?? f.serial}</b>
                       <div>Frescura: <b>{f.freshness === 'LIVE' ? 'Actualizado' : f.freshness === 'DELAYED' ? 'Atrasado' : f.freshness === 'NO_COMMUNICATION' ? 'Sem comunicação' : 'Histórico'}</b></div>
                       <div>Último ponto: {fmtData(f.lastPoint!.gnssTime, true)} ({f.lastPoint!.ageMinutes} min atrás)</div>
-                      <div>Fonte: {f.lastPoint!.source === 'SIMULATOR' ? 'Simulador — DEMO' : f.lastPoint!.source === 'TRACKER' ? 'Rastreador dedicado' : 'Telemóvel'}</div>
+                      <div>Fonte: {f.lastPoint!.source === 'SIMULATOR' ? 'Simulador - DEMO' : f.lastPoint!.source === 'TRACKER' ? 'Rastreador dedicado' : 'Telemóvel'}</div>
                       {f.trip && <div>Viagem: {f.trip.code}</div>}
                     </div>
                   </Popup>
@@ -157,7 +157,7 @@ export function MapaView() {
             <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-red-600" /> Sem comunicação</span>
             <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-zinc-400" /> Histórico</span>
             <span className="flex items-center gap-1.5"><CircleDot className="h-3 w-3" /> ▲ rastreador • ■ simulador DEMO</span>
-            <span className="ml-auto">Linhas tracejadas = ligação visual entre pontos, não telemetria observada (§7.4)</span>
+            <span className="ml-auto">Linhas tracejadas = ligação visual entre pontos, não telemetria observada</span>
           </div>
         </Panel>
 
@@ -182,18 +182,18 @@ export function MapaView() {
             </div>
           </Panel>
 
-          <Panel title="Regras do mapa" description="Transparência (§15.3)">
+          <Panel title="Regras do mapa" description="Transparência">
             <ul className="space-y-1.5 text-xs text-muted-foreground">
-              <li>• Sem dados recentes <b>não significa</b> veículo parado, desligado ou avariado (GPS-027).</li>
-              <li>• &quot;Sem comunicação&quot; é distinto de &quot;sem alimentação&quot; — ver estado do dispositivo na ficha.</li>
-              <li>• ETA apenas aproximada; sem fonte de tráfego fiável (GPS-024).</li>
+              <li>• Sem dados recentes <b>não significa</b> veículo parado, desligado ou avariado.</li>
+              <li>• &quot;Sem comunicação&quot; é distinto de &quot;sem alimentação&quot; - ver estado do dispositivo na ficha.</li>
+              <li>• ETA apenas aproximada; sem fonte de tráfego fiável.</li>
             </ul>
           </Panel>
         </div>
       </div>
 
-      <Modal open={!!sel} onOpenChange={(v) => !v && setSel(null)} title={`Trajecto — ${sel?.vehicle?.plate ?? sel?.serial ?? ''}`}
-        description="Últimas 24 h. Pontos recebidos em atraso mantêm a hora original do dispositivo (NFR-012)." wide>
+      <Modal open={!!sel} onOpenChange={(v) => !v && setSel(null)} title={`Trajecto - ${sel?.vehicle?.plate ?? sel?.serial ?? ''}`}
+        description="Últimas 24 h. Pontos recebidos em atraso mantêm a hora original do dispositivo." wide>
         <div className="space-y-3">
           {sel && <div className="flex flex-wrap gap-2 text-xs">
             <Badge variant="outline">Dispositivo: {sel.serial}</Badge>
@@ -211,8 +211,8 @@ export function MapaView() {
                   {[...historico].reverse().slice(0, 120).map((h, i) => (
                     <tr key={i} className="border-b last:border-0">
                       <td className="p-2">{fmtData(h.gnssTime, true)}</td>
-                      <td className="p-2 text-muted-foreground">—</td>
-                      <td className="p-2">{h.speedKmh != null ? `${Math.round(h.speedKmh)} km/h` : '—'}</td>
+                      <td className="p-2 text-muted-foreground">-</td>
+                      <td className="p-2">{h.speedKmh != null ? `${Math.round(h.speedKmh)} km/h` : '-'}</td>
                       <td className="p-2">{h.source === 'SIMULATOR' ? 'DEMO' : h.source === 'TRACKER' ? 'rastreador' : 'telemóvel'}</td>
                       <td className="p-2">{h.isHistoric ? <span className="text-amber-600">histórico/atrasado</span> : <span className="text-emerald-700">em curso</span>}</td>
                     </tr>

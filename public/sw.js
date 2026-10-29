@@ -4,7 +4,7 @@
 // de dados offline é garantida pelo IndexedDB (não pelo SW). Nada é
 // cacheado agressivamente para não mascarar frescura de telemetria.
 // =====================================================================
-const CACHE = 'sigfco-shell-v1'
+const CACHE = 'sigfco-shell-v2'
 const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (e) => {

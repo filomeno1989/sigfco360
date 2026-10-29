@@ -1,4 +1,4 @@
-// SIGFCO — Perfil corrente (me): base de toda a autorização no cliente
+// SIGFCO - Perfil corrente (me): base de toda a autorização no cliente
 import { withAuth, jsonOk } from '@/lib/api'
 import { db } from '@/lib/db'
 

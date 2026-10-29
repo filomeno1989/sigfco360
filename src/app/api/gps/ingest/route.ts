@@ -1,10 +1,10 @@
 // =====================================================================
-// SIGFCO — Ingestão de telemetria (GPS-003/005/008, ARC-003, SEC-008)
-// Autenticação por chave de dispositivo (não por conta pessoal, §14.3).
-// Aceita lotes store-and-forward com timestamps originais e seq —
-// deduplicação por (deviceId, seq) garante reenvio idempotente (AT-005).
-// Rate limiting aplicado (SEC-008). Nenhum ponto DEMO entra por aqui
-// disfarçado: a fonte SIMULATOR é registada tal e qual (DEV-003).
+// SIGFCO - Ingestão de telemetria
+// Autenticação por chave de dispositivo.
+// Aceita lotes store-and-forward com timestamps originais e seq -
+// deduplicação por (deviceId, seq) garante reenvio idempotente.
+// Rate limiting aplicado. Nenhum ponto DEMO entra por aqui
+// disfarçado: a fonte SIMULATOR é registada tal e qual.
 // =====================================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -56,11 +56,11 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true, adapter: adapter.id,
     ...result,
-    note: 'Pontos duplicados (mesma seq) são ignorados — reenvio seguro.',
+    note: 'Pontos duplicados (mesma seq) são ignorados - reenvio seguro.',
   })
 }
 
-/** GET — documentação viva do contrato de ingestão (§14.3, DEV-010). */
+/** GET - documentação viva do contrato de ingestão. */
 export async function GET() {
   return NextResponse.json({
     endpoint: 'POST /api/gps/ingest',
@@ -77,9 +77,9 @@ export async function GET() {
       }],
     },
     regras: [
-      'seq incremental por dispositivo — reenvios do mesmo seq são deduplicados',
+      'seq incremental por dispositivo - reenvios do mesmo seq são deduplicados',
       'gnssTime = hora original do satélite; pontos atrasados são aceites e marcados isHistoric',
-      'powerEvent: MAIN_LOST | MAIN_RESTORED | LOW_BATTERY | TAMPER — gera alerta crítico',
+      'powerEvent: MAIN_LOST | MAIN_RESTORED | LOW_BATTERY | TAMPER - gera alerta crítico',
       'lote máximo: 2000 pontos por pedido',
     ],
   })

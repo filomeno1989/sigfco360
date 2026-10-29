@@ -1,5 +1,5 @@
-// SIGFCO — Download autorizado de ficheiros (SEC-007: acesso privado,
-// autorização em cada download, isolamento por empresa AT-001)
+// SIGFCO - Download autorizado de ficheiros (: acesso privado,
+// autorização em cada download, isolamento por empresa)
 import { withAuth, jsonError } from '@/lib/api'
 import { readAttachmentBytes } from '@/lib/files'
 

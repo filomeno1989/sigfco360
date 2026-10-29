@@ -1,4 +1,4 @@
-// SIGFCO — Manutenção: planos e ordens de serviço (MNT-001..005, AT-018)
+// SIGFCO - Manutenção: planos e ordens de serviço
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { nextCode } from '@/lib/numeracao'
@@ -17,7 +17,7 @@ export const GET = withAuth(async ({ ctx, req }) => {
       include: { vehicle: { select: { plate: true } } },
     }),
   ])
-  // MNT-002: alertas antecipados calculados sobre o plano
+  //: alertas antecipados calculados sobre o plano
   const now = new Date()
   const planAlerts = plans.filter((p) => {
     if (!p.active) return false
@@ -49,7 +49,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
     return jsonOk({ plan })
   }
 
-  // MNT-003: ordem de serviço com veículo, sintoma, prioridade, oficina
+  //: ordem de serviço com veículo, sintoma, prioridade, oficina
   const vehicle = await db.vehicle.findUnique({ where: { id: String(b.vehicleId ?? '') } })
   if (!vehicle || vehicle.companyId !== companyId) return jsonError(404, 'Veículo não encontrado.')
   const code = await nextCode(companyId, 'workorder')
@@ -79,11 +79,11 @@ export const PATCH = withAuth(async ({ ctx, req }) => {
   const wo = await db.workOrder.findUnique({ where: { id: String(b.id ?? '') } })
   if (!wo || wo.companyId !== companyId) return jsonError(404, 'Ordem de serviço não encontrada.')
 
-  // MNT-004: libertação de bloqueio crítico — prova de autorização
+  //: libertação de bloqueio crítico - prova de autorização
   if (b.action === 'release') {
     if (!['COMPANY_ADMIN', 'FLEET_MANAGER', 'MECHANIC', 'PLATFORM_ADMIN'].includes(ctx.user.role))
       return jsonError(403, 'Libertação exige perfil autorizado.')
-    if (!b.reason) return jsonError(400, 'Motivo/prova da libertação obrigatório (MNT-004).')
+    if (!b.reason) return jsonError(400, 'Motivo/prova da libertação obrigatório.')
     const updated = await db.workOrder.update({
       where: { id: wo.id },
       data: { status: 'DONE', closedAt: new Date(), releasedById: ctx.user.id, releasedAt: new Date(), diagnosis: (b.diagnosis as string) || wo.diagnosis },

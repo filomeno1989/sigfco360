@@ -1,11 +1,11 @@
 // =====================================================================
-// SIGFCO — Motor de viagens (§5.1, §5.3, FR-030..044)
+// SIGFCO - Motor de viagens
 // Transições de estado verificadas no SERVIDOR. Regras críticas:
-//  · Carregador obrigatório bloqueia partida (FR-040/044, AT-003)
+//  · Carregador obrigatório bloqueia partida
 //  · Sem motorista activo, veículo elegível, documentos válidos,
-//    rastreado registado e checklist aprovado a viagem não inicia (§5.3)
+//    rastreado registado e checklist aprovado a viagem não inicia
 //  · Conflito de recursos: um camião/motorista não entra em duas
-//    viagens activas sobrepostas (§5.3, AT-016)
+//    viagens activas sobrepostas
 // =====================================================================
 import 'server-only'
 import { db } from '@/lib/db'
@@ -23,7 +23,7 @@ const ALLOWED: Record<string, string[]> = {
   PAUSED: ['IN_TRANSIT', 'ARRIVED'],
   ARRIVED: ['AWAITING_RECONCILIATION'],
   AWAITING_RECONCILIATION: ['CLOSED'],
-  CLOSED: ['AWAITING_RECONCILIATION'], // apenas via reabertura autorizada (§5.1)
+  CLOSED: ['AWAITING_RECONCILIATION'], // apenas via reabertura autorizada
   CANCELLED: [],
 }
 
@@ -34,7 +34,7 @@ export function transitionAllowed(from: string, to: string): TransitionResult {
   return { ok: true }
 }
 
-/** Documentos bloqueantes expirados do veículo/motorista (DOC-002, AT-017). */
+/** Documentos bloqueantes expirados do veículo/motorista. */
 export async function expiredBlockingDocs(companyId: string, vehicleId?: string, driverId?: string) {
   const now = new Date()
   return db.documentItem.findMany({
@@ -50,7 +50,7 @@ export async function expiredBlockingDocs(companyId: string, vehicleId?: string,
   })
 }
 
-/** Elegibilidade de motorista (FR-021) e de veículo (§5.2, AT-017/018). */
+/** Elegibilidade de motorista e de veículo. */
 export async function resourceBlockers(companyId: string, vehicleId: string, driverId: string) {
   const blockers: string[] = []
   const now = new Date()
@@ -80,12 +80,12 @@ export async function resourceBlockers(companyId: string, vehicleId: string, dri
   const wo = await db.workOrder.findFirst({
     where: { companyId, vehicleId, critical: true, status: { in: ['OPEN', 'IN_PROGRESS'] }, blocksVehicle: true },
   })
-  if (wo) blockers.push(`Manutenção crítica em aberto: ${wo.code} — libertação autorizada necessária (MNT-004).`)
+  if (wo) blockers.push(`Manutenção crítica em aberto: ${wo.code} - libertação autorizada necessária.`)
 
   return blockers
 }
 
-/** Sobreposição de viagens activas (§5.3, AT-016). */
+/** Sobreposição de viagens activas. */
 export async function conflictCheck(
   companyId: string,
   vehicleId: string,
@@ -108,18 +108,18 @@ export async function conflictCheck(
   return conflicts
 }
 
-/** Validação do checklist: itens bloqueantes falhados impedem partida (FR-044). */
+/** Validação do checklist: itens bloqueantes falhados impedem partida. */
 export function checklistBlockers(itemsJson: string): { blockers: string[]; passed: boolean } {
   const items = JSON.parse(itemsJson) as Array<{ key: string; label: string; blocking: boolean; ok?: boolean }>
   const blockers = items.filter((i) => i.blocking && i.ok !== true).map((i) => i.label)
   return { blockers, passed: blockers.length === 0 }
 }
 
-/** Garante que o template contém os itens sistémicos obrigatórios (REQUISITO CRÍTICO §6.5). */
+/** Garante que o template contém os itens sistémicos obrigatórios. */
 export function ensureSystemChecklistItems(items: Array<{ key: string; label: string; blocking: boolean; category?: string }>) {
   const must: Array<{ key: string; label: string; blocking: boolean; category: string }> = [
     { key: CHARGER_ITEM_KEY, label: 'Carregador de telemóvel funcional e acessível (12/24V, USB compatível)', blocking: true, category: 'seguranca' },
-    { key: PHONE_HOLDER_KEY, label: 'Suporte seguro de telemóvel montado (FR-041)', blocking: true, category: 'seguranca' },
+    { key: PHONE_HOLDER_KEY, label: 'Suporte seguro de telemóvel montado', blocking: true, category: 'seguranca' },
     { key: GPS_ITEM_KEY, label: 'Rastreador GPS associado e operacional (GPS/sem rede local)', blocking: true, category: 'seguranca' },
   ]
   const byKey = new Map(items.map((i) => [i.key, i]))

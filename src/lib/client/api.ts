@@ -1,5 +1,5 @@
-// SIGFCO — Cliente HTTP da interface: erros legíveis, sem segredos no
-// cliente (DEV-007). Todas as chamadas usam caminhos relativos.
+// SIGFCO - Cliente HTTP da interface: erros legíveis, sem segredos no
+// cliente. Todas as chamadas usam caminhos relativos.
 export class ApiError extends Error {
   status: number
   payload: Record<string, unknown>
@@ -31,18 +31,30 @@ export async function api<T = unknown>(
 }
 
 export const fmtMT = (minor: number | null | undefined, ccy = 'MZN') => {
-  if (minor === null || minor === undefined) return '—'
+  if (minor === null || minor === undefined) return '-'
   try { return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: ccy }).format(minor / 100) }
   catch { return `${ccy} ${(minor / 100).toFixed(2)}` }
 }
 
+// Aceita os formatos usados no dia a dia: "1.234,56", "1234,56" e "1234.56"
 export const parseMT = (s: string): number => {
-  const cleaned = s.replace(/\s/g, '').replace(/\./g, '').replace(',', '.')
-  return Math.round(Number(cleaned) * 100)
+  const limpo = (s || '').replace(/[^\d.,-]/g, '')
+  if (!limpo) return 0
+  const temVirgula = limpo.includes(',')
+  const temPonto = limpo.includes('.')
+  let normalizado = limpo
+  if (temVirgula && temPonto) normalizado = limpo.replace(/\./g, '').replace(',', '.')
+  else if (temVirgula) normalizado = limpo.replace(',', '.')
+  else if (temPonto) {
+    const partes = limpo.split('.')
+    if (!(partes.length === 2 && partes[1].length === 2)) normalizado = limpo.replace(/\./g, '')
+  }
+  const valor = Number(normalizado)
+  return Number.isFinite(valor) ? Math.round(valor * 100) : 0
 }
 
 export const fmtData = (d?: string | Date | null, comHora = false) => {
-  if (!d) return '—'
+  if (!d) return '-'
   const date = typeof d === 'string' ? new Date(d) : d
   try {
     return date.toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: comHora ? 'short' : undefined, timeZone: 'Africa/Maputo' })

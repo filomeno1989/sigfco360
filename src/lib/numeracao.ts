@@ -1,5 +1,5 @@
 // =====================================================================
-// SIGFCO — Numeração única por empresa (FR-005) e parâmetros (FR-003)
+// SIGFCO - Numeração única por empresa e parâmetros
 // Contadores transaccionais evitam colisões multiutilizador/multiempresa.
 // =====================================================================
 import 'server-only'
@@ -18,22 +18,22 @@ export async function nextCode(companyId: string, key: 'trip' | 'expense' | 'wor
   })
 }
 
-// ------------------------- Parâmetros (FR-003) -----------------------
-// Valores por defeito propostos pelo SRS; alteráveis por empresa SEM
+// ------------------------- Parâmetros -----------------------
+// Valores por defeito; alteráveis por empresa SEM
 // alteração de código. Guardados em Setting.valueJson.
 export const SETTING_DEFAULTS = {
-  gps_moving_seconds: 45,          // GPS-010: 30-60s em movimento
-  gps_stopped_seconds: 300,        // GPS-010: 5min parado
-  gps_stale_minutes: 20,           // GPS-012: limiar "sem comunicação"
-  gps_delayed_minutes: 5,          // GPS-012: limiar "atrasado"
-  long_stop_minutes: 120,          // GPS-023: paragem prolongada
-  route_deviation_km: 15,          // GPS-021: tolerância de desvio
-  budget_alert_pct: 80,            // FIN-011
-  duplicate_window_minutes: 240,   // FR-058
-  duplicate_radius_m: 2000,        // FR-058
+  gps_moving_seconds: 45,          //: 30-60s em movimento
+  gps_stopped_seconds: 300,        //: 5min parado
+  gps_stale_minutes: 20,           //: limiar "sem comunicação"
+  gps_delayed_minutes: 5,          //: limiar "atrasado"
+  long_stop_minutes: 120,          //: paragem prolongada
+  route_deviation_km: 15,          //: tolerância de desvio
+  budget_alert_pct: 80,            //
+  duplicate_window_minutes: 240,   //
+  duplicate_radius_m: 2000,        //
   require_receipt_categories: ['combustivel', 'portagens', 'alfandega'],
-  speed_limit_default_kmh: 100,    // GPS-025 (configurável por empresa/rota)
-  photo_max_width: 1280,           // AT-011
+  speed_limit_default_kmh: 100,    // (configurável por empresa/rota)
+  photo_max_width: 1280,           //
   photo_jpeg_quality: 0.72,
 } as const
 

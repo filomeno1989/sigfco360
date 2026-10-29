@@ -1,7 +1,6 @@
 // =====================================================================
-// SIGFCO — Constantes de negócio (estados, categorias, perfis, rótulos)
-// Fonte: SRS v1.0 §4, §5, §6, §9, §15. SQLite não suporta enums Prisma:
-// valores controlados aqui, com rótulos PT-MZ.
+// SIGFCO - Constantes de negócio (estados, categorias, perfis, rótulos)
+// Sem enums Prisma: valores controlados aqui, com rótulos PT-MZ.
 // =====================================================================
 
 export const ROLES = [
@@ -22,7 +21,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   BRANCH_MANAGER: 'Gestor de filial',
 }
 
-// ------------------------- Estados de viagem (§5.1) ------------------
+// ------------------------- Estados de viagem ------------------
 export const TRIP_STATUS = [
   'DRAFT', 'PLANNED', 'AWAITING_CHECKLIST', 'AUTHORIZED_DEPARTURE',
   'IN_TRANSIT', 'PAUSED', 'ARRIVED', 'AWAITING_RECONCILIATION',
@@ -43,13 +42,13 @@ export const TRIP_STATUS_LABELS: Record<TripStatus, string> = {
   CANCELLED: 'Cancelada',
 }
 
-// Estados activos para conflito de recursos (§5.3)
+// Estados activos para conflito de recursos
 export const TRIP_ACTIVE_STATUSES: TripStatus[] = [
   'PLANNED', 'AWAITING_CHECKLIST', 'AUTHORIZED_DEPARTURE',
   'IN_TRANSIT', 'PAUSED', 'ARRIVED', 'AWAITING_RECONCILIATION',
 ]
 
-// ------------------------- Estados de veículo (§5.2) -----------------
+// ------------------------- Estados de veículo -----------------
 export const VEHICLE_STATUS = [
   'AVAILABLE', 'RESERVED', 'IN_TRANSIT', 'MAINTENANCE', 'INACTIVE', 'BLOCKED',
 ] as const
@@ -64,7 +63,7 @@ export const VEHICLE_STATUS_LABELS: Record<VehicleStatus, string> = {
   BLOCKED: 'Bloqueado por segurança',
 }
 
-// ------------------------- Estados de despesa (FR-055) ---------------
+// ------------------------- Estados de despesa ---------------
 export const EXPENSE_STATUS = [
   'SUBMITTED', 'IN_REVIEW', 'APPROVED', 'REJECTED', 'RETURNED',
   'RECONCILED', 'VOID',
@@ -82,7 +81,7 @@ export const EXPENSE_STATUS_LABELS: Record<ExpenseStatus, string> = {
   VOID: 'Anulada',
 } as Record<string, string>
 
-// ------------------------- Categorias de despesa (FR-053) ------------
+// ------------------------- Categorias de despesa ------------
 export const EXPENSE_CATEGORIES = [
   'combustivel', 'portagens', 'per_diem', 'alfandega', 'estacionamento',
   'manutencao_emergencia', 'pneus', 'lavagem', 'comunicacao', 'alojamento',
@@ -106,7 +105,7 @@ export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   outros: 'Outros justificados',
 }
 
-// ------------------------- Eventos de viagem (FR-036) ----------------
+// ------------------------- Eventos de viagem ----------------
 export const TRIP_EVENT_TYPES = [
   'DEPARTURE', 'ARRIVAL', 'CHECKPOINT', 'BORDER', 'PAUSE_START', 'PAUSE_END',
   'DELAY', 'DEVIATION', 'DRIVER_CHANGE', 'VEHICLE_CHANGE', 'LOAD', 'UNLOAD',
@@ -127,11 +126,11 @@ export const TRIP_EVENT_LABELS: Record<TripEventType, string> = {
   VEHICLE_CHANGE: 'Mudança de veículo',
   LOAD: 'Carregamento',
   UNLOAD: 'Descarga',
-  SOS: 'SOS — pedido de ajuda',
+  SOS: 'SOS - pedido de ajuda',
   OTHER: 'Outro',
 }
 
-// ------------------------- Alertas (§15.2) ---------------------------
+// ------------------------- Alertas ---------------------------
 export const SEVERITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'INFO'] as const
 export type Severity = (typeof SEVERITIES)[number]
 
@@ -143,18 +142,18 @@ export const SEVERITY_LABELS: Record<Severity, string> = {
 }
 
 // ------------------------- GPS ---------------------------------------
-// Fonte de posição (GPS-011): TRACKER é a primária; MOBILE é
-// complementar; SIMULATOR é DEMO e nunca apresentada como real (DEV-003).
+// Fonte de posição: TRACKER é a primária; MOBILE é
+// complementar; SIMULATOR é DEMO e nunca apresentada como real.
 export const GPS_SOURCES = ['TRACKER', 'MOBILE', 'SIMULATOR'] as const
 export type GpsSource = (typeof GPS_SOURCES)[number]
 
 export const GPS_SOURCE_LABELS: Record<GpsSource, string> = {
   TRACKER: 'Rastreador dedicado',
   MOBILE: 'Telemóvel (complementar)',
-  SIMULATOR: 'Simulador — DEMO',
+  SIMULATOR: 'Simulador - DEMO',
 }
 
-// Frescura do último ponto (GPS-012 / AT-006)
+// Frescura do último ponto
 export type Freshness = 'LIVE' | 'DELAYED' | 'NO_COMMUNICATION' | 'HISTORIC'
 export const FRESHNESS_LABELS: Record<Freshness, string> = {
   LIVE: 'Actualizado',
@@ -177,7 +176,7 @@ export const DEVICE_STATUS_LABELS: Record<DeviceStatus, string> = {
   INACTIVE: 'Inactivo',
 }
 
-// ------------------------- Moedas (FIN-001) --------------------------
+// ------------------------- Moedas --------------------------
 export const CURRENCIES = ['MZN', 'USD', 'ZAR', 'ZWG', 'MWK', 'ZMW', 'CDF'] as const
 export type Currency = (typeof CURRENCIES)[number]
 
@@ -210,7 +209,7 @@ export const INCIDENT_TYPE_LABELS: Record<string, string> = {
   ROUBO: 'Roubo', PERDA_CARGA: 'Perda de carga', OUTRO: 'Outro',
 }
 
-// Chave do item sistémico do carregador (REQUISITO CRÍTICO §6.5)
+// Chave do item sistémico do carregador
 export const CHARGER_ITEM_KEY = 'carregador_telemovel'
 export const GPS_ITEM_KEY = 'rastreador_operacional'
 export const PHONE_HOLDER_KEY = 'suporte_telemovel'

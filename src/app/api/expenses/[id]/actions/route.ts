@@ -1,6 +1,6 @@
-// SIGFCO — Acções de despesa: aprovar/rejeitar/devolver/rever/anular
-// Rejeição exige motivo + categoria (FIN-014); aprovada não se altera
-// em silêncio — correcção por estorno/reclassificação (FR-057, AT-012/014)
+// SIGFCO - Acções de despesa: aprovar/rejeitar/devolver/rever/anular
+// Rejeição exige motivo + categoria; aprovada não se altera
+// em silêncio - correcção por estorno/reclassificação
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 
@@ -14,12 +14,12 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
   const body = await readJson<{ action: string; reason?: string; rejectCategory?: string }>(req)
   const actorIsAuthor = expense.authorUserId === ctx.user.id
 
-  // §4.1: ninguém aprova as próprias despesas (segregação de funções)
+  //: ninguém aprova as próprias despesas (segregação de funções)
   const approving = ['approve', 'reject', 'return']
   if (approving.includes(body.action) && actorIsAuthor)
     return jsonError(403, 'Não pode aprovar/rejeitar a sua própria despesa (segregação de funções).')
   if (approving.includes(body.action) && !['FINANCE', 'COMPANY_ADMIN', 'PLATFORM_ADMIN', 'FLEET_MANAGER'].includes(ctx.user.role))
-    return jsonError(403, 'Aprovação restrita a perfis financeiros/gestão (§4).')
+    return jsonError(403, 'Aprovação restrita a perfis financeiros/gestão.')
 
   if (body.action === 'approve') {
     if (!['SUBMITTED', 'IN_REVIEW', 'RETURNED'].includes(expense.status)) return jsonError(409, `Estado actual ${expense.status} não permite aprovação.`)
@@ -31,8 +31,8 @@ export const POST = withAuth(async ({ ctx, req, params }) => {
 
   if (body.action === 'reject' || body.action === 'return') {
     if (!['SUBMITTED', 'IN_REVIEW', 'RETURNED', 'APPROVED'].includes(expense.status)) return jsonError(409, 'Estado não permite esta decisão.')
-    if (!body.reason || body.reason.length < 8) return jsonError(400, 'Motivo obrigatório com pelo menos 8 caracteres (FIN-014).')
-    if (!body.rejectCategory) return jsonError(400, 'Categoria do motivo é obrigatória (FIN-014).')
+    if (!body.reason || body.reason.length < 8) return jsonError(400, 'Motivo obrigatório com pelo menos 8 caracteres.')
+    if (!body.rejectCategory) return jsonError(400, 'Categoria do motivo é obrigatória.')
     const status = body.action === 'reject' ? 'REJECTED' : 'RETURNED'
     const updated = await db.expense.update({
       where: { id: expense.id },

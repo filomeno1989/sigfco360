@@ -1,4 +1,4 @@
-// SIGFCO — Pneus (MNT-010): cadastro, instalação, histórico de rotação
+// SIGFCO - Pneus: cadastro, instalação, histórico de rotação
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 
@@ -45,7 +45,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   }
 
   const serial = String(b.serial ?? '').trim()
-  if (!serial) return jsonError(400, 'Número de série do pneu obrigatório (MNT-010).')
+  if (!serial) return jsonError(400, 'Número de série do pneu obrigatório.')
   if (await db.tire.findUnique({ where: { companyId_serial: { companyId, serial } } })) return jsonError(409, 'Pneu já registado.')
   const tire = await db.tire.create({
     data: {

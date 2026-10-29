@@ -1,8 +1,8 @@
 // =====================================================================
-// SIGFCO — Sincronização offline do motorista (§8.2, OFF-002..008, AT-008..010)
+// SIGFCO - Sincronização offline do motorista
 // Recebe a fila do dispositivo: cada item tem clientUuid (idempotency
 // key); responde item a item com ACK/ERRO. O cliente só remove do
-// IndexedDB após ACK durável (OFF-004). Server revalida tudo (OFF-008):
+// IndexedDB após ACK durável. Server revalida tudo:
 // guardado offline ≠ aprovado automaticamente.
 // =====================================================================
 import { NextRequest, NextResponse } from 'next/server'
@@ -26,13 +26,13 @@ type Ack = { clientUuid: string; ok: boolean; id?: string; error?: string; dupli
 
 export async function POST(req: NextRequest) {
   const session = await resolveSession(req.cookies.get(SESSION_COOKIE)?.value)
-  if (!session) return NextResponse.json({ error: 'Sessão inválida — volte a autenticar para sincronizar.' }, { status: 401 })
+  if (!session) return NextResponse.json({ error: 'Sessão inválida - volte a autenticar para sincronizar.' }, { status: 401 })
   const user = session.user
   const companyId = user.companyId
   if (!companyId) return NextResponse.json({ error: 'Utilizador sem empresa.' }, { status: 400 })
 
   if (!rateLimit(`sync:${user.id}`, 60, 60_000))
-    return NextResponse.json({ error: 'Sincronização em excesso — tente novamente dentro de um minuto.' }, { status: 429 })
+    return NextResponse.json({ error: 'Sincronização em excesso - tente novamente dentro de um minuto.' }, { status: 429 })
 
   const body = await req.json().catch(() => null) as { items?: QueueItem[] } | null
   if (!body?.items || !Array.isArray(body.items)) return NextResponse.json({ error: 'Fila inválida.' }, { status: 400 })
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         continue
       }
 
-      // ACK de repetição: item já processado (OFF-003)
+      // ACK de repetição: item já processado
       const prev = await db.syncRecord.findUnique({ where: { clientUuid: item.clientUuid } })
       if (prev?.status === 'PROCESSED') {
         acks.push({ clientUuid: item.clientUuid, ok: true, id: prev.id })
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         const p = item.payload as Record<string, number | string>
         const trip = await db.trip.findUnique({ where: { id: String(p.tripId ?? '') } })
         if (!trip || trip.companyId !== companyId) throw new Error('Viagem inválida para o registo.')
-        if (['CLOSED', 'CANCELLED'].includes(trip.status)) throw new Error('Viagem fechada — despesa exigirá reabertura autorizada.')
+        if (['CLOSED', 'CANCELLED'].includes(trip.status)) throw new Error('Viagem fechada - despesa exigirá reabertura autorizada.')
         const category = String(p.category ?? 'outros')
         if (!EXPENSE_CATEGORIES.includes(category as never)) throw new Error('Categoria inválida.')
         const amountMinor = Number(p.amountMinor)
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
         })
         createdId = created.id
         duplicateInfo = dup.flag ? { score: dup.score, reasons: dup.reasons } : undefined
-        // fotografia offline anexada quando presente (OFF-009)
+        // fotografia offline anexada quando presente
         if (p.dataUrl) {
           const { saveAttachment, validateUpload } = await import('@/lib/files')
           const crypto = await import('crypto')
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
                 await db.attachment.update({ where: { id: att.id }, data: { expenseId: created.id } })
               }
             }
-          } catch { /* foto falha mas despesa fica registada — motorista pode reenviar */ }
+          } catch { /* foto falha mas despesa fica registada - motorista pode reenviar */ }
         }
       }
 
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
       }
 
       else if (item.type === 'GPS_MOBILE') {
-        // Fonte secundária etiquetada — nunca fundida sem origem (GPS-015)
+        // Fonte secundária etiquetada - nunca fundida sem origem
         const p = item.payload as Record<string, number | string>
         const device = await db.gpsDevice.findFirst({ where: { companyId, vehicleId: String(p.vehicleId ?? '') } })
         const created = await db.gpsPoint.create({
@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ acks, serverTime: new Date().toISOString() })
 }
 
-/** GET — estado da fila do utilizador (OFF-006: visibilidade). */
+/** GET - estado da fila do utilizador. */
 export async function GET(req: NextRequest) {
   const session = await resolveSession(req.cookies.get(SESSION_COOKIE)?.value)
   if (!session) return NextResponse.json({ error: 'Sessão inválida.' }, { status: 401 })

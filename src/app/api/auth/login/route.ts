@@ -1,4 +1,4 @@
-// SIGFCO — Autenticação: login/logout (SEC-002, SEC-008)
+// SIGFCO - Autenticação: login/logout
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyPassword, createSession, revokeSession, SESSION_COOKIE, SESSION_TTL_HOURS } from '@/lib/auth'

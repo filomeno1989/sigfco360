@@ -1,4 +1,4 @@
-// SIGFCO — Veículos (FR-010..015): ficha, documentação, estados automáticos,
+// SIGFCO - Veículos: ficha, documentação, estados automáticos,
 // quilometragem confiável, histórico e rastreador associado
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
@@ -50,7 +50,7 @@ export const POST = withAuth(async ({ ctx, req }) => {
   const companyId = scopeCompanyId(ctx, req)
   const b = await readJson<Record<string, unknown>>(req)
   const plate = normalizePlate(String(b.plate ?? ''))
-  if (!plate) return jsonError(400, 'Matrícula obrigatória (normalizada, FR-010).')
+  if (!plate) return jsonError(400, 'Matrícula obrigatória.')
   if (await db.vehicle.findUnique({ where: { companyId_plate: { companyId, plate } } }))
     return jsonError(409, `Matrícula ${plate} já registada nesta empresa.`)
 
@@ -96,7 +96,7 @@ export const PATCH = withAuth(async ({ ctx, req }) => {
   for (const k of ['year', 'cargoCapacityKg', 'tankCapacityL', 'odometerKm', 'refConsumption', 'tareKg'])
     if (b[k] !== undefined && b[k] !== '') data[k] = Number(b[k])
 
-  // FR-015: quilometragem implausível → exigir justificação, não aceitar em silêncio
+  //: quilometragem implausível → exigir justificação, não aceitar em silêncio
   if (b.odometerKm !== undefined) {
     const newOdo = Number(b.odometerKm)
     if (newOdo < vehicle.odometerKm && !b.odoReason) {

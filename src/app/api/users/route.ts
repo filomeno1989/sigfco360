@@ -1,4 +1,4 @@
-// SIGFCO — Utilizadores e permissões (§4, FR-001) — isolamento por empresa
+// SIGFCO - Utilizadores e permissões - isolamento por empresa
 import { withAuth, jsonOk, jsonError, readJson, audit, scopeCompanyId } from '@/lib/api'
 import { db } from '@/lib/db'
 import { hashPassword, passwordPolicyOk } from '@/lib/auth'
@@ -56,7 +56,7 @@ export const PATCH = withAuth(async ({ ctx, req }) => {
     const policy = passwordPolicyOk(body.newPassword)
     if (!policy.ok) return jsonError(400, policy.message!)
     data.passwordHash = hashPassword(body.newPassword)
-    // SEC-002: alteração de palavra-passe revoga outras sessões
+    //: alteração de palavra-passe revoga outras sessões
     const { revokeAllSessions } = await import('@/lib/auth')
     await revokeAllSessions(user.id, ctx.session.id)
   }

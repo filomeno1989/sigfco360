@@ -4,7 +4,7 @@
 
 import * as React from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button as BotaoBase } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -16,7 +16,30 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Search, TriangleAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export { Button } from '@/components/ui/button'
+// Botão com guarda de duplo clique: cliques repetidos em menos de 400 ms
+// são ignorados, evitando registo duplicado de acções (criar, aprovar, fechar).
+type PropriedadesBotao = React.ComponentProps<typeof BotaoBase>
+export function Button({ onClick, ...resto }: PropriedadesBotao) {
+  const ultimoClique = React.useRef(0)
+  const aoClicar = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const agora = Date.now()
+    if (agora - ultimoClique.current < 400) { e.preventDefault(); e.stopPropagation(); return }
+    ultimoClique.current = agora
+    onClick?.(e)
+  }
+  return <BotaoBase {...resto} onClick={aoClicar} />
+}
+
+export function EntradaTexto(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  // Campos numéricos mudam de valor com a roda do rato quando focados;
+  // perdemos o foco ao rolar para que o utilizador navegue a página sem
+  // alterar quantidades sem dar conta.
+  const aoRolar = (e: React.WheelEvent<HTMLInputElement>) => {
+    const alvo = e.target as HTMLInputElement
+    if (alvo.type === 'number' && document.activeElement === alvo) alvo.blur()
+  }
+  return <Input {...props} onWheel={aoRolar} />
+}
 
 export function Page({ title, subtitle, actions, children, demo }: {
   title: string; subtitle?: string; actions?: React.ReactNode; children: React.ReactNode; demo?: boolean
@@ -165,10 +188,6 @@ export function Campo({ label, children, hint, required, erro }: { label: string
       {erro && <p className="text-xs text-red-600">{erro}</p>}
     </div>
   )
-}
-
-export function EntradaTexto(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <Input {...props} />
 }
 
 // O Radix Select nao aceita <SelectItem value=""> (lanca erro em runtime).

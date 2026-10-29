@@ -17,13 +17,18 @@ export const dynamic = 'force-dynamic'
 export const GET = withAuth(async ({ ctx, req }) => {
   const companyId = scopeCompanyId(ctx, req)
   const sp = req.nextUrl.searchParams
+  const estado = sp.get('status')
+  const viagemId = sp.get('tripId')
+  const categoria = sp.get('category')
+  const motoristaId = sp.get('driverId')
+  const moeda = sp.get('currency')
   const q = {
     companyId,
-    ...(sp.get('status') ? { status: { in: sp.get('status')!.split(',') } } : {}),
-    ...(sp.get('tripId') ? { tripId: sp.get('tripId') } : {}),
-    ...(sp.get('category') ? { category: sp.get('category') } : {}),
-    ...(sp.get('driverId') ? { driverId: sp.get('driverId') } : {}),
-    ...(sp.get('currency') ? { currency: sp.get('currency') } : {}),
+    ...(estado ? { status: { in: estado.split(',') } } : {}),
+    ...(viagemId ? { tripId: viagemId } : {}),
+    ...(categoria ? { category: categoria } : {}),
+    ...(motoristaId ? { driverId: motoristaId } : {}),
+    ...(moeda ? { currency: moeda } : {}),
     ...(sp.get('duplicates') === '1' ? { duplicateFlag: 'POSSIBLE_DUPLICATE' } : {}),
     ...(sp.get('noReceipt') === '1' ? { noReceiptReason: { not: null } } : {}),
   }

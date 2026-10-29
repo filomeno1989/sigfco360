@@ -38,7 +38,7 @@ export function LoginView({ aoEntrar }: { aoEntrar: () => void }) {
     setBusy(true); setErro(null)
     try {
       await api('/api/demo', { method: 'POST', body: { action: 'seed' } })
-      setDemo({ seeded: true })
+      setDemo({ enabled: true, seeded: true })
     } catch (err) { setErro(err instanceof Error ? err.message : 'Falha ao criar ambiente DEMO.') }
     finally { setBusy(false) }
   }

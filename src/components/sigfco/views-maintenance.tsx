@@ -99,7 +99,7 @@ function OrdensServico({ podeGerir }: { podeGerir: boolean }) {
         </div>
       </Modal>
 
-      <Modal open={!!libertar} onOpenChange={(v) => !v && setLibertar(null)} title={`Libertar ${libertar?.code ?? ''}`}
+      <Modal open={!!liberarOS} onOpenChange={(v) => !v && setLibertar(null)} title={`Libertar ${liberarOS?.code ?? ''}`}
         description="A libertação exige motivo/prova e fica registada com autor e data."
         footer={
           <>

@@ -8,7 +8,6 @@ export const GET = withAuth(async ({ ctx, req }) => {
   const companyId = scopeCompanyId(ctx, req)
   const tires = await db.tire.findMany({
     where: { companyId },
-    include: { },
     orderBy: { createdAt: 'desc' },
   })
   const events = await db.tireEvent.findMany({ where: { companyId }, orderBy: { date: 'desc' }, take: 200 })

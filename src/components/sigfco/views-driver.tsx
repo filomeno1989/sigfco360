@@ -25,7 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ErroAlerta, Confirmacao } from './ui-kit'
 import {
   Route, Camera, AlertTriangle, Wifi, WifiOff, RefreshCw, CheckCircle2, Clock,
-  CloudUpload, Siren, MapPin, ChevronRight, ShieldAlert,
+  CloudUpload, Siren, MapPin, ChevronRight, ShieldAlert, ArrowLeft,
 } from 'lucide-react'
 
 type Trip = { id: string; code: string; origin: string; destination: string; status: string; client?: string; cargoDesc?: string; plannedStart: string; departureAt?: string | null }
@@ -42,7 +42,7 @@ const CATS = [
 ]
 
 export function MotoristaApp() {
-  const { sessao, logout } = useApp()
+  const { sessao, logout, setVista: mudarVistaApp } = useApp()
   const [detail, setDetail] = React.useState<Detail | null>(null)
   const [fila, setFila] = React.useState<FilaItem[]>([])
   const [online, setOnline] = React.useState(true)
@@ -96,6 +96,11 @@ export function MotoristaApp() {
           </div>
           <div className="flex items-center gap-2">
             {online ? <Badge className="bg-emerald-700 text-white gap-1"><Wifi className="h-3 w-3" />Online</Badge> : <Badge className="bg-amber-600 text-white gap-1"><WifiOff className="h-3 w-3" />Sem internet</Badge>}
+            {sessao.user.role !== 'DRIVER' && (
+              <Button size="sm" variant="ghost" className="text-zinc-300 hover:bg-zinc-800" onClick={() => mudarVistaApp('dashboard')} title="Voltar ao modo escritório">
+                <ArrowLeft className="h-4 w-4" />Voltar
+              </Button>
+            )}
             <Button size="sm" variant="ghost" className="text-zinc-300 hover:bg-zinc-800" onClick={logout}>Sair</Button>
           </div>
         </div>
@@ -433,7 +438,6 @@ function DespesasMotorista({ detail, aoMudar, refrescarFila, gpsOk, online }: {
                 <Camera className="h-4 w-4" />{foto ? 'Fotografia pronta (comprimida no telemóvel)' : 'Tirar foto / escolher imagem'}
                 <input type="file" accept="image/*" capture="environment" className="hidden" onChange={pegarFoto} />
               </label>
-              {foto && { }}
               {foto && <img src={foto.dataUrl} alt="Pré-visualização do talão" className="max-h-40 rounded border" />}
             </div>
             {!foto && (

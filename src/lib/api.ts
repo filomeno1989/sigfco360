@@ -87,7 +87,7 @@ export type RouteOptions = {
 }
 
 export function withAuth(
-  handler: (c: AuthedContext) => Promise<NextResponse>,
+  handler: (c: AuthedContext) => Promise<Response>,
   opts: RouteOptions = {}
 ) {
   return async (req: NextRequest, route?: { params?: Promise<Record<string, string>> }) => {

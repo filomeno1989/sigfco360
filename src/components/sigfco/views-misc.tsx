@@ -10,21 +10,98 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Download, Check, X } from 'lucide-react'
 
+// SEP. CSV: separador ; e campos entre aspas com aspas duplicadas como escape
+function analisarCsv(texto: string): string[][] {
+  const t = texto.replace(/^\uFEFF/, '')
+  const linhas: string[][] = []
+  let linha: string[] = [], campo = '', entreAspas = false
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i]
+    if (entreAspas) {
+      if (c === '"') { if (t[i + 1] === '"') { campo += '"'; i++ } else entreAspas = false }
+      else campo += c
+    } else if (c === '"') entreAspas = true
+    else if (c === ';') { linha.push(campo); campo = '' }
+    else if (c === '\n') { linha.push(campo); linhas.push(linha); linha = []; campo = '' }
+    else if (c !== '\r') campo += c
+  }
+  if (campo !== '' || linha.length > 0) { linha.push(campo); linhas.push(linha) }
+  return linhas.filter((l) => l.length > 0)
+}
+
 export function RelatoriosView() {
   const { sessao } = useApp()
   const podeExportar = ['FINANCE', 'COMPANY_ADMIN', 'PLATFORM_ADMIN', 'AUDITOR', 'FLEET_MANAGER', 'DISPATCHER', 'BRANCH_MANAGER'].includes(sessao.user.role)
+  const [ocupado, setOcupado] = React.useState<string | null>(null)
+  const [erro, setErro] = React.useState<string | null>(null)
   const EXPS = [
     { type: 'expenses', label: 'Despesas (com moedas e taxas)', nota: 'Permissão financeira exigida; exportação auditada.' },
     { type: 'fuel', label: 'Abastecimentos', nota: 'Litros, custos, odómetro e anomalias.' },
     { type: 'trips', label: 'Viagens', nota: 'Ciclo de vida, quilometragens e orçamento.' },
     { type: 'documents', label: 'Documentos', nota: 'Vencimentos, bloqueantes e estados.' },
   ]
+
+  // PDF: reutiliza a mesma exportação autorizada e auditada do servidor;
+  // o documento é montado no navegador com tabela paginada e cabeçalho.
+  const exportarPdf = async (tipo: string, titulo: string) => {
+    setOcupado(tipo); setErro(null)
+    try {
+      const res = await fetch(`/api/reports/export?type=${tipo}`, { cache: 'no-store' })
+      if (!res.ok) {
+        const dados = await res.json().catch(() => ({ error: `Erro ${res.status}` }))
+        throw new Error(String((dados as { error?: string }).error ?? `Erro ${res.status}`))
+      }
+      const tabela = analisarCsv(await res.text())
+      const { jsPDF } = await import('jspdf')
+      const { default: autoTable } = await import('jspdf-autotable')
+      const doc = new jsPDF({ orientation: tabela[0]?.length > 7 ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' })
+      const agora = new Date().toLocaleString('pt-PT', { timeZone: 'Africa/Maputo' })
+      doc.setFontSize(14)
+      doc.text('SIGFCO - Gestão de Frotas e Controlos Operacionais', 14, 15)
+      doc.setFontSize(11)
+      doc.text(titulo, 14, 22)
+      doc.setFontSize(9)
+      doc.setTextColor(110)
+      doc.text(`Emitido em ${agora} (Hora de Moçambique) - referência: últimos 90 dias`, 14, 28)
+      doc.setTextColor(0)
+      if (tabela.length < 2) {
+        doc.setFontSize(10)
+        doc.text('Sem dados no período seleccionado.', 14, 38)
+      } else {
+        autoTable(doc, {
+          head: [tabela[0]],
+          body: tabela.slice(1),
+          startY: 34,
+          styles: { fontSize: 7.5, cellPadding: 1.5, overflow: 'linebreak' },
+          headStyles: { fillColor: [15, 118, 110], textColor: 255 },
+          alternateRowStyles: { fillColor: [244, 248, 247] },
+          didDrawPage: () => {
+            const total = doc.getNumberOfPages()
+            doc.setFontSize(8); doc.setTextColor(120)
+            doc.text(`Página ${doc.getCurrentPageInfo().pageNumber} de ${total} - exportação registada na auditoria`, 14, doc.internal.pageSize.getHeight() - 6)
+            doc.setTextColor(0)
+          },
+        })
+      }
+      doc.save(`sigfco_${tipo}_${new Date().toISOString().slice(0, 10)}.pdf`)
+    } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao gerar PDF.') }
+    finally { setOcupado(null) }
+  }
+
   return (
-    <Page title="Relatórios e exportações" subtitle="Formato CSV; toda a exportação sensível é registada na auditoria" demo={sessao.company?.isDemo}>
+    <Page title="Relatórios e exportações" subtitle="Excel (CSV) e PDF; toda a exportação sensível é registada na auditoria" demo={sessao.company?.isDemo}>
+      <ErroAlerta erro={erro} />
       <div className="grid gap-3 sm:grid-cols-2">
         {EXPS.map((e) => (
           <Panel key={e.type} title={e.label} description={e.nota}
-            actions={podeExportar && <Button size="sm" variant="outline" onClick={() => window.open(`/api/reports/export?type=${e.type}`, '_blank')}><Download className="mr-1.5 h-3.5 w-3.5" />CSV</Button>}>
+            actions={podeExportar && (
+              <div className="flex gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => window.open(`/api/reports/export?type=${e.type}`, '_blank')}><Download className="mr-1.5 h-3.5 w-3.5" />Excel (CSV)</Button>
+                <Button size="sm" variant="outline" disabled={ocupado === e.type} onClick={() => exportarPdf(e.type, e.label)}>
+                  {ocupado === e.type ? 'A gerar…' : <><Download className="mr-1.5 h-3.5 w-3.5" />PDF</>}
+                </Button>
+              </div>
+            )}>
             <p className="text-xs text-muted-foreground">Filtros de período podem ser adicionados ao link de exportação (from/to). O ficheiro não é público - acesso exige sessão com permissão.</p>
           </Panel>
         ))}

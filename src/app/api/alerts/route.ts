@@ -7,11 +7,13 @@ export const dynamic = 'force-dynamic'
 export const GET = withAuth(async ({ ctx, req }) => {
   const companyId = scopeCompanyId(ctx, req)
   const sp = req.nextUrl.searchParams
+  const estado = sp.get('status')
+  const gravidade = sp.get('severity')
   const alerts = await db.alert.findMany({
     where: {
       companyId,
-      ...(sp.get('status') ? { status: sp.get('status') } : {}),
-      ...(sp.get('severity') ? { severity: sp.get('severity') } : {}),
+      ...(estado ? { status: estado } : {}),
+      ...(gravidade ? { severity: gravidade } : {}),
     },
     orderBy: { createdAt: 'desc' },
     take: 200,

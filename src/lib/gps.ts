@@ -111,14 +111,14 @@ export type IngestResult = { accepted: number; duplicates: number; rejected: num
 
 export async function ingestPoints(
   companyId: string,
-  device: { id: string; serial: string; vehicleId: string | null; protocol: string | null },
+  device: { id: string; serial: string; vehicleId: string | null; protocol: string | null; status: string },
   points: NormalizedPoint[]
 ): Promise<IngestResult> {
   const result: IngestResult = { accepted: 0, duplicates: 0, rejected: 0, events: 0 }
   const staleMinutes = await getSetting<number>(companyId, 'gps_stale_minutes')
   const now = new Date()
 
-  let prev = await db.gpsPoint.findFirst({
+  let prev: { lat: number; lng: number; gnssTime: Date } | null = await db.gpsPoint.findFirst({
     where: { deviceId: device.id },
     orderBy: { gnssTime: 'desc' },
   })

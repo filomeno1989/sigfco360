@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     ? await db.trip.findFirst({ where: { vehicleId: device.vehicleId, status: { in: ['IN_TRANSIT', 'PAUSED', 'AUTHORIZED_DEPARTURE'] } } })
     : null
 
-  const result = await ingestPoints(device.companyId, { id: device.id, serial: device.serial, vehicleId: device.vehicleId, protocol: device.protocol }, points)
+  const result = await ingestPoints(device.companyId, { id: device.id, serial: device.serial, vehicleId: device.vehicleId, protocol: device.protocol, status: device.status }, points)
   if (trip) {
     await db.gpsPoint.updateMany({
       where: { deviceId: device.id, tripId: null, gnssTime: { gte: trip.departureAt ?? trip.plannedStart } },

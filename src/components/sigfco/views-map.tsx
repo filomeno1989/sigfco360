@@ -3,8 +3,8 @@
 // Regras visíveis: frescura inequívoca do último ponto; linha entre
 // pontos é apenas representação visual, claramente distinta de telemetria
 // observada; telemetria antiga NUNCA apresentada como tempo real.
-// Tiles: OpenStreetMap ( - sem download em massa; mapa offline
-// dependerá de fornecedor licenciado, ver DECISOES_TECNICAS.md).
+// Tiles: OpenStreetMap (sem download em massa; mapa offline dependerá
+// de fornecedor licenciado, ver DECISOES_TECNICAS.md).
 // =====================================================================
 'use client'
 
@@ -27,8 +27,6 @@ const Marker = dynamicImport(() => import('react-leaflet').then((m) => m.Marker)
 const Popup = dynamicImport(() => import('react-leaflet').then((m) => m.Popup), { ssr: false })
 const Polyline = dynamicImport(() => import('react-leaflet').then((m) => m.Polyline), { ssr: false })
 const Circle = dynamicImport(() => import('react-leaflet').then((m) => m.Circle), { ssr: false })
-const LayersControl = dynamicImport(() => import('react-leaflet').then((m) => m.LayersControl), { ssr: false })
-const LayersControlBase = dynamicImport(() => import('react-leaflet').then((m) => m.LayersControl.Base), { ssr: false })
 
 // Recalcula o tamanho do mapa quando o contentor muda (menu, tema,
 // redimensionamento do ecra), evitando mapa cortado ou cinzento.
@@ -74,6 +72,18 @@ function makeIcon(cor: string, fonte: string, L: typeof LeafletNS | null): DivIc
   })
 }
 
+// Cache de icones: recriar DivIcon a cada actualizacao faz o Leaflet
+// redesenhar marcadores sem necessidade (perceptivel como "mapa lento").
+const CACHE_ICONES = new Map<string, DivIcon>()
+function iconeComCache(cor: string, fonte: string, L: typeof LeafletNS | null): DivIcon | undefined {
+  if (!L) return undefined
+  const chave = `${cor}|${iconeFonte(fonte)}`
+  let icone = CACHE_ICONES.get(chave)
+  if (!icone) { icone = makeIcon(cor, iconeFonte(fonte), L); if (icone) CACHE_ICONES.set(chave, icone) }
+  return icone
+}
+const iconeFonte = (fonte: string) => (fonte === 'SIMULATOR' ? 'SIMULATOR' : 'OUTRO')
+
 export function MapaView() {
   const { sessao } = useApp()
   const [L, setL] = React.useState<typeof LeafletNS | null>(null)
@@ -93,7 +103,11 @@ export function MapaView() {
         api<{ fleet: FleetItem[] }>('/api/gps/fleet'),
         api<{ geofences: Geofence[] }>('/api/gps/geofences'),
       ])
-      setFleet(f.fleet); setFences(g.geofences); setErro(null)
+      // Actualiza o estado apenas quando os dados mudam; assim os marcadores
+      // nao sao redesenhados a cada ciclo de 30 s sem razao.
+      setFleet((anterior) => (JSON.stringify(anterior) === JSON.stringify(f.fleet) ? anterior : f.fleet))
+      setFences((anterior) => (JSON.stringify(anterior) === JSON.stringify(g.geofences) ? anterior : g.geofences))
+      setErro(null)
     } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao carregar frota.') }
     finally { setBusy(false) }
   }, [])
@@ -141,12 +155,14 @@ export function MapaView() {
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
         <Panel className="overflow-hidden p-0">
-          <div className="h-[480px] w-full" style={{ zIndex: 0 }}>
+          <div className="h-[420px] sm:h-[480px] w-full" style={{ zIndex: 0 }}>
             <MapContainer center={centro} zoom={7} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
               <AjustarMapa />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                keepBuffer={4}
+                updateWhenZooming={false}
               />
               {fences.filter((f) => f.active).map((f) => (
                 <Circle key={f.id} center={[f.lat, f.lng]} radius={f.radiusM}
@@ -160,7 +176,7 @@ export function MapaView() {
               )}
               {comPosicao.map((f) => (
                 <Marker key={f.deviceId} position={[f.lastPoint!.lat, f.lastPoint!.lng]}
-                  icon={makeIcon(CORES_FRESH[f.freshness] ?? '#71717a', f.lastPoint!.source, L)}
+                  icon={iconeComCache(CORES_FRESH[f.freshness] ?? '#71717a', f.lastPoint!.source, L)}
                   eventHandlers={{ click: () => abrirHistorico(f) }}>
                   <Popup>
                     <div className="text-xs space-y-1">

@@ -8,6 +8,9 @@
 // =====================================================================
 'use client'
 
+// Folha de estilos do Leaflet: obrigatoria, define o posicionamento dos
+// paineis/tiles; sem ela o mapa renderiza cortado e desalinha.
+import 'leaflet/dist/leaflet.css'
 import * as React from 'react'
 import dynamicImport from 'next/dynamic'
 import { useApp } from './root'
@@ -26,6 +29,26 @@ const Polyline = dynamicImport(() => import('react-leaflet').then((m) => m.Polyl
 const Circle = dynamicImport(() => import('react-leaflet').then((m) => m.Circle), { ssr: false })
 const LayersControl = dynamicImport(() => import('react-leaflet').then((m) => m.LayersControl), { ssr: false })
 const LayersControlBase = dynamicImport(() => import('react-leaflet').then((m) => m.LayersControl.Base), { ssr: false })
+
+// Recalcula o tamanho do mapa quando o contentor muda (menu, tema,
+// redimensionamento do ecra), evitando mapa cortado ou cinzento.
+const AjustarMapa = dynamicImport(
+  () => import('react-leaflet').then((m) => {
+    function Ajuste() {
+      const mapa = m.useMap()
+      React.useEffect(() => {
+        const corrigir = () => mapa.invalidateSize()
+        const temporizador = window.setTimeout(corrigir, 150)
+        const observador = new ResizeObserver(corrigir)
+        observador.observe(mapa.getContainer())
+        return () => { window.clearTimeout(temporizador); observador.disconnect() }
+      }, [mapa])
+      return null
+    }
+    return Ajuste
+  }),
+  { ssr: false },
+)
 
 type FleetItem = {
   deviceId: string; serial: string; deviceStatus: string; freshness: string
@@ -120,6 +143,7 @@ export function MapaView() {
         <Panel className="overflow-hidden p-0">
           <div className="h-[480px] w-full" style={{ zIndex: 0 }}>
             <MapContainer center={centro} zoom={7} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+              <AjustarMapa />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"

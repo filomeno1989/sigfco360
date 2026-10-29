@@ -171,14 +171,23 @@ export function EntradaTexto(props: React.InputHTMLAttributes<HTMLInputElement>)
   return <Input {...props} />
 }
 
+// O Radix Select nao aceita <SelectItem value=""> (lanca erro em runtime).
+// Traduzimos internamente o estado "sem escolha" para um valor sentinela,
+// mantendo a API publica do componente com '' (vazio) para as vistas.
+const SEM_ESCOLHA = '__sem_escolha__'
+
 export function Selecao({ value, onChange, opcoes, placeholder }: {
   value?: string; onChange: (v: string) => void
   opcoes: Array<{ value: string; label: string }>; placeholder?: string
 }) {
+  const valorInterno = value == null || value === '' ? SEM_ESCOLHA : value
+  const escolher = (v: string) => onChange(v === SEM_ESCOLHA ? '' : v)
   return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger><SelectValue placeholder={placeholder ?? 'Seleccionar…'} /></SelectTrigger>
-      <SelectContent>{opcoes.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+    <Select value={valorInterno} onValueChange={escolher}>
+      <SelectTrigger className="w-full"><SelectValue placeholder={placeholder ?? 'Seleccionar…'} /></SelectTrigger>
+      <SelectContent>
+        {opcoes.map((o) => <SelectItem key={o.value} value={o.value === '' ? SEM_ESCOLHA : o.value}>{o.label}</SelectItem>)}
+      </SelectContent>
     </Select>
   )
 }

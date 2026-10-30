@@ -241,7 +241,12 @@ export function ConfiguracaoView() {
         api<{ sessions: typeof sessions }>('/api/auth/sessions'),
         api<{ geofences: typeof fences }>('/api/gps/geofences'),
       ])
-      setCompany(c.company); setSettings(c.settings); setUsers(u.users); setSessions(s.sessions); setFences(g.geofences); setErro(null)
+      // Guardas de lista: se o servidor devolver algo inesperado, mostramos
+      // erro legível em vez de derrubar a aplicação com um .map sobre
+      // valores que não são listas.
+      if (!Array.isArray(u.users) || !Array.isArray(s.sessions) || !Array.isArray(g.geofences))
+        throw new Error('Resposta inesperada do servidor ao carregar a configuração.')
+      setCompany(c.company ?? {}); setSettings(c.settings ?? {}); setUsers(u.users); setSessions(s.sessions); setFences(g.geofences); setErro(null)
     } catch (e) { setErro(e instanceof Error ? e.message : 'Falha ao carregar configuração.') }
   }, [])
   React.useEffect(() => { carregar() }, [carregar])

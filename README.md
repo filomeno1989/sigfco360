@@ -9,6 +9,20 @@ Implementação integral do SRS v1.0 (27-10-2026): painel Web de escritório + A
 
 ---
 
+## Documentação do projecto
+
+Os documentos oficiais estão na pasta [`documentos/`](documentos/):
+
+| Documento | Ficheiros | Uso |
+|---|---|---|
+| **Manual do Utilizador** | `Manual do Utilizador SIGFCO.pdf` / `.docx` | Para partilhar com clientes e utilizadores |
+| **Documento Geral do Sistema** | `Documento Geral do Sistema SIGFCO.pdf` / `.docx` | Visão de conjunto da operação |
+| **SRS v1.0** | `SRS - Especificação de Requisitos SIGFCO.pdf` / `.docx` | Referência técnica dos requisitos |
+
+Notas técnicas de acompanhamento (matriz de requisitos, decisões técnicas, manuais por perfil) na pasta [`docs/`](docs/).
+
+---
+
 ## 1. Requisitos do ambiente
 
 - Node.js 20+ ou Bun 1.1+
